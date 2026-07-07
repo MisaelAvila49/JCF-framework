@@ -1,34 +1,52 @@
 # Padron JCF — Nacional
 
 ```js
-import {agrupar, conTasa, conEdadSexo} from "../components/agregar.js";
-import {barras, lineas} from "../components/graficas.js";
+import {agrupar, conTasa} from "../components/agregar.js";
+import {filtrarDatos} from "../components/filtros.js";
+import {barras} from "../components/graficas.js";
 const padron = FileAttachment("../data/padron_agregado.csv").csv({typed: true});
+```
+
+## Filtros
+
+```js
+const usarEdadSexo = view(Inputs.toggle({label: "Filtrar por edad y sexo", value: false}));
+```
+
+```js
+// Los controles de edad y sexo solo se muestran si el checkbox esta activo.
+const edadMin = usarEdadSexo
+  ? view(Inputs.range([18, 29], {step: 1, value: 18, label: "Edad minima"}))
+  : 18;
+```
+
+```js
+const edadMax = usarEdadSexo
+  ? view(Inputs.range([18, 29], {step: 1, value: 29, label: "Edad maxima"}))
+  : 29;
+```
+
+```js
+const sexo = usarEdadSexo
+  ? view(Inputs.select(["Todos", "FEMENINO", "MASCULINO"], {label: "Sexo"}))
+  : "Todos";
+```
+
+```js
+const filtrado = filtrarDatos(padron, {usarEdadSexo, edadMin, edadMax, sexo});
 ```
 
 ## Cobertura por año (Candidatos, nacional)
 
-Beneficiarios entre candidatos, por año.
-
 ```js
-const cobAño = conTasa(agrupar(padron, ["año"]));
-display(barras(cobAño, {x: "año", y: "tasa", titulo: "Tasa de cobertura por año"}));
+display(barras(conTasa(agrupar(filtrado, ["año"])),
+               {x: "año", y: "tasa", titulo: "Tasa de cobertura por año"}));
 ```
 
 ## Beneficiarios por año (Beneficiarios, nacional)
 
 ```js
-const benAño = agrupar(padron, ["año"]);
-display(barras(benAño, {x: "año", y: "beneficiarios", formato: "entero",
-                        titulo: "Beneficiarios por año"}));
-```
-
-## Cobertura por edad (Candidatos, nacional, 2021+)
-
-De 2021 en adelante, donde el padron trae edad.
-
-```js
-const porEdad = conTasa(agrupar(conEdadSexo(padron), ["edad"]));
-display(barras(porEdad.sort((a, b) => a.edad - b.edad),
-               {x: "edad", y: "tasa", titulo: "Cobertura por edad"}));
+display(barras(agrupar(filtrado, ["año"]),
+               {x: "año", y: "beneficiarios", formato: "entero",
+                titulo: "Beneficiarios por año"}));
 ```
