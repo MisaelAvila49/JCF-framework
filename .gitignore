@@ -2,3 +2,4 @@ node_modules/
 dist/
 .observablehq/
 src/.observablehq/
+src/data/*.csv
