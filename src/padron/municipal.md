@@ -8,6 +8,17 @@ import {mapaMunicipios} from "../components/mapa.js";
 import {modoDesde, sufijoFiltro, nombresUnicos} from "../components/panel.js";
 const padron = FileAttachment("../data/padron_agregado.csv").csv({typed: true});
 const cruces = FileAttachment("../data/padron_cruces.csv").csv({typed: true});
+const proyMun = FileAttachment("../data/padron_proyeccion_municipal.csv").csv({typed: true});
+```
+
+```js
+// La proyeccion municipal trae cve_ent/cve_mun sin nombres. Se filtra por texto
+// resolviendo primero los cve validos (via el padron, que si tiene nombres).
+function filtrarProyMun(datos, {nombreEnt, nombreMun}) {
+  const validos = new Set(filtrarDatos(padron, {nombreEnt, nombreMun})
+    .map((d) => String(d.cve_mun).padStart(5, "0")));
+  return datos.filter((d) => validos.has(String(d.cve_mun).padStart(5, "0")));
+}
 ```
 
 ```js
@@ -105,25 +116,52 @@ if (!cveEntSel) {
 }
 ```
 
-## Cobertura por municipio (Candidatos, municipal, 2021)
+## Cobertura por municipio (Candidatos, municipal, año reciente)
 
-Primer año con candidatos por municipio. Top 25 del filtro por tasa.
+Denominador estimado: candidatos del censo 2020 por municipio, escalados por el
+crecimiento de la poblacion joven de su entidad (proyeccion). Top 25 del filtro.
 
 Nota: la tasa puede superar el 100%. El numerador (beneficiarios) viene del
-padron administrativo y el denominador (candidatos) del censo 2020; en algunos
-municipios el padron registra mas beneficiarios que los candidatos que el censo
-conto (por movilidad, altas de fuera del municipio o desfase entre fuentes). No
+padron administrativo y el denominador de una estimacion basada en el censo 2020;
+en algunos municipios el padron registra mas beneficiarios que los candidatos
+estimados (movilidad, altas de fuera del municipio o desfase entre fuentes). No
 es un error: son dos fuentes distintas.
 
 ```js
-const porMun = conTasa(agrupar(padronF.filter((d) => d.año === 2021), ["cve_mun", "nombre_mun"]))
-  .filter((d) => d.nombre_mun != null && d.nombre_mun !== "" && d.tasa != null)
-  .sort((a, b) => b.tasa - a.tasa)
-  .slice(0, 25)
-  .map((d) => ({nombre_mun: d.nombre_mun, tasa: d.tasa, benef: d.beneficiarios}));
+// Nombre de municipio por cve_mun (del padron) para etiquetar la proyeccion.
+const nombreMunPorCve = new Map(padron.map((d) => [String(d.cve_mun).padStart(5, "0"), d.nombre_mun]));
+```
+```js
+const añoMaxMun = maxProp(proyMun, "año");
+const proyMunF = filtrarProyMun(proyMun, {nombreEnt, nombreMun});
+const porMun = proyMunF.filter((d) => d.año === añoMaxMun && d.tasa != null && d.tasa !== "")
+  .map((d) => ({nombre_mun: nombreMunPorCve.get(String(d.cve_mun).padStart(5, "0")) ?? String(d.cve_mun),
+    tasa: +d.tasa * 100, benef: d.beneficiarios}))
+  .sort((a, b) => b.tasa - a.tasa).slice(0, 25);
 display(barrasH(porMun, {x: "tasa", y: "nombre_mun", crudoKey: "benef",
-  titulo: "Cobertura por municipio (Candidatos, municipal, 2021)",
-  subtitulo: "% de candidatos con beca (top 25 del filtro)" + sufijoFiltro(modo), fuente: "Fuente: STPS"}));
+  titulo: `Cobertura por municipio (Candidatos, municipal, ${añoMaxMun})`,
+  subtitulo: "% de candidatos estimados con beca (top 25 del filtro)", fuente: "Fuente: STPS / CONAPO"}));
+```
+
+## Evolucion de la cobertura municipal (Candidatos, municipal, 2019-2025)
+
+Serie del municipio buscado (o el promedio del filtro). Denominador estimado.
+
+```js
+const evoMun = (() => {
+  const m = new Map();
+  for (const d of proyMunF) {
+    if (!m.has(d.año)) m.set(d.año, {año: d.año, ben: 0, can: 0});
+    const a = m.get(d.año);
+    a.ben += +d.beneficiarios || 0;
+    a.can += +d.candidatos_estimados || 0;
+  }
+  return [...m.values()].map((d) => ({año: String(d.año), benef: d.ben,
+    tasa: d.can ? d.ben / d.can * 100 : 0}));
+})();
+display(barras(evoMun, {x: "año", y: "tasa", crudoKey: "benef",
+  titulo: "Evolucion de la cobertura municipal (Candidatos, municipal, 2019-2025)",
+  subtitulo: "% de candidatos estimados con beca", fuente: "Fuente: STPS / CONAPO"}));
 ```
 
 ## Perfil por sexo del municipio (Beneficiarios, municipal, año reciente)

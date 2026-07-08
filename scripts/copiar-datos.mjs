@@ -11,6 +11,7 @@ const ARCHIVOS = [
   "padron_agregado.csv",
   "padron_cruces.csv",
   "padron_proyeccion.csv",
+  "padron_proyeccion_municipal.csv",
   "padron_monto.csv",
   "padron_antiguedad.csv",
   "enigh_c1_cobertura_estatal.csv",

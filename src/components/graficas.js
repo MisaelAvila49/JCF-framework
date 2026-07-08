@@ -122,8 +122,17 @@ export function barrasAgrupadas(datos, {x, serie, y, titulo = "", subtitulo = ""
 
 // Barras apiladas 100% (composicion). serie = categoria, valor = pct.
 // dominioX (opcional): orden explicito del eje x (ej. deciles 1..10).
+// faceta (opcional): columna para paneles lado a lado (ej. año).
 export function barrasApiladas(datos, {x, serie, valor, titulo = "",
-    subtitulo = "", fuente = "", dominioX = null, crudoKey = null} = {}) {
+    subtitulo = "", fuente = "", dominioX = null, crudoKey = null, faceta = null} = {}) {
+  const barOpts = {x, y: valor, fill: serie, order: serie, fillOpacity: 0.85,
+    channels: {
+      [serie]: (d) => d[serie],
+      "Porcentaje": (d) => `${(+d[valor]).toFixed(1)}%`,
+      ...(crudoKey ? {"Monto": (d) => compacto(d[crudoKey])} : {}),
+    },
+    tip: {format: {x: false, y: false, fill: false}}};
+  if (faceta) barOpts.fx = faceta;
   return Plot.plot({
     title: titulo,
     subtitle: subtitulo,
@@ -131,15 +140,10 @@ export function barrasApiladas(datos, {x, serie, valor, titulo = "",
     marginRight: 140,
     color: {legend: true, range: PALETA},
     x: {label: null, ...(dominioX ? {domain: dominioX} : {})},
+    ...(faceta ? {fx: {label: faceta}} : {}),
     y: {label: "%", grid: true, tickFormat: (d) => `${d}%`},
     marks: [
-      Plot.barY(datos, {x, y: valor, fill: serie, order: serie, fillOpacity: 0.85,
-        channels: {
-          [serie]: (d) => d[serie],
-          "Porcentaje": (d) => `${(+d[valor]).toFixed(1)}%`,
-          ...(crudoKey ? {"Monto": (d) => compacto(d[crudoKey])} : {}),
-        },
-        tip: {format: {x: false, y: false, fill: false}}}),
+      Plot.barY(datos, barOpts),
       Plot.ruleY([0], {stroke: "#e2e8f0"}),
     ],
   });

@@ -21,15 +21,8 @@ const percap = FileAttachment("../data/enigh_ingreso_percapita.csv").csv({typed:
 const deciles = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 ```
 
-## Año
-
-Las graficas por decil muestran los tres años (paneles lado a lado). La
-composicion, cajitas e ingreso usan el año elegido (una barra apilada por año
-seria ilegible con los tres a la vez).
-
-```js
-const anio = view(Inputs.select([2024, 2022, 2020], {label: "Año (composicion / cajitas / ingreso)", value: 2024}));
-```
+Todas las graficas muestran los tres años (2020, 2022, 2024): las series por año
+en un solo eje, y las de decil / composicion en paneles lado a lado.
 
 ## Cobertura por año (Hogares con un integrante candidato)
 
@@ -59,81 +52,79 @@ display(barrasFacetadas(repDec, {x: "decil", y: "pct", faceta: "año", crudoKey:
   subtitulo: "% de los hogares con beca en cada decil, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Personas con la beca por sexo
+## Personas con la beca por sexo (3 años)
 
 ```js
-const conBeca = persSexo.filter((d) => d.año === anio && d.universo === "tiene_jcf");
-const totP = conBeca.reduce((s, d) => s + d.personas, 0);
-display(conBeca.length ? barras(conBeca.map((d) => ({sexo: d.sexo_etiqueta, pct: totP ? d.personas / totP * 100 : 0, per: d.personas})),
-  {x: "sexo", y: "pct", crudoKey: "per",
-   subtitulo: `% por sexo (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const totSexoAño = new Map();
+for (const d of persSexo.filter((x) => x.universo === "tiene_jcf")) totSexoAño.set(d.año, (totSexoAño.get(d.año) ?? 0) + d.personas);
+const sexoFilas = persSexo.filter((d) => d.universo === "tiene_jcf")
+  .map((d) => ({año: String(d.año), sexo: d.sexo_etiqueta, per: d.personas,
+    pct: totSexoAño.get(d.año) ? d.personas / totSexoAño.get(d.año) * 100 : 0}));
+display(barrasFacetadas(sexoFilas, {x: "sexo", y: "pct", faceta: "año", crudoKey: "per",
+  titulo: "Personas con la beca por sexo (Personas con beca, nacional)",
+  subtitulo: "% por sexo, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Personas con la beca por edad
+## Personas con la beca por edad (3 años)
 
 ```js
-const edadBeca = persEdad.filter((d) => d.año === anio && d.universo === "tiene_jcf");
-const totE = edadBeca.reduce((s, d) => s + d.personas, 0);
-display(edadBeca.length ? barras(edadBeca.map((d) => ({edad: String(d.edad_num), pct: totE ? d.personas / totE * 100 : 0, per: d.personas}))
-    .sort((a, b) => +a.edad - +b.edad),
-  {x: "edad", y: "pct", crudoKey: "per",
-   subtitulo: `% por edad (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const totEdadAño = new Map();
+for (const d of persEdad.filter((x) => x.universo === "tiene_jcf")) totEdadAño.set(d.año, (totEdadAño.get(d.año) ?? 0) + d.personas);
+const edadFilas = persEdad.filter((d) => d.universo === "tiene_jcf")
+  .map((d) => ({año: String(d.año), edad: String(d.edad_num), per: d.personas,
+    pct: totEdadAño.get(d.año) ? d.personas / totEdadAño.get(d.año) * 100 : 0}))
+  .sort((a, b) => +a.edad - +b.edad);
+display(barrasFacetadas(edadFilas, {x: "edad", y: "pct", faceta: "año", crudoKey: "per",
+  titulo: "Personas con la beca por edad (Personas con beca, nacional)",
+  subtitulo: "% por edad, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Composicion del ingreso: con beca (Hogares con beca)
+## Composicion del ingreso: con beca (Hogares con beca, 3 años)
 
 ```js
-const cb = compBeca.filter((d) => d.año === anio).map((d) => ({...d, x: "con beca"}));
-display(cb.length ? barrasApiladas(cb, {x: "x", serie: "macrotema", valor: "pct", crudoKey: "monto_exp",
-   subtitulo: `% del ingreso total (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const cb = compBeca.map((d) => ({...d, x: String(d.año)}));
+display(barrasApiladas(cb, {x: "x", serie: "macrotema", valor: "pct", crudoKey: "monto_exp",
+   subtitulo: "% del ingreso total, una barra por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Composicion del ingreso: candidatos sin beca (Hogares candidatos)
+## Composicion del ingreso: candidatos sin beca (Hogares candidatos, 3 años)
 
 ```js
-const cs = compSin.filter((d) => d.año === anio).map((d) => ({...d, x: "sin beca"}));
-display(cs.length ? barrasApiladas(cs, {x: "x", serie: "macrotema", valor: "pct", crudoKey: "monto_exp",
-   subtitulo: `% del ingreso total (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const cs = compSin.map((d) => ({...d, x: String(d.año)}));
+display(barrasApiladas(cs, {x: "x", serie: "macrotema", valor: "pct", crudoKey: "monto_exp",
+   subtitulo: "% del ingreso total, una barra por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Composicion del ingreso por decil: con beca (Hogares con beca)
+## Composicion del ingreso por decil: con beca (Hogares con beca, 3 años)
 
 ```js
-const cdB = compDecil.filter((d) => d.año === anio).map((d) => ({...d, x: String(d.decil)}));
-display(cdB.length ? barrasApiladas(cdB, {x: "x", serie: "macrotema", valor: "pct", crudoKey: "monto_exp",
-   dominioX: deciles, subtitulo: `cada decil suma 100% (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const cdB = compDecil.map((d) => ({...d, x: String(d.decil), año: String(d.año)}));
+display(barrasApiladas(cdB, {x: "x", serie: "macrotema", valor: "pct", crudoKey: "monto_exp",
+   dominioX: deciles, faceta: "año", subtitulo: "cada decil suma 100%, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Composicion del ingreso por decil: candidatos sin beca (Hogares candidatos)
+## Composicion del ingreso por decil: candidatos sin beca (Hogares candidatos, 3 años)
 
 ```js
-const cdS = compSinDecil.filter((d) => d.año === anio).map((d) => ({...d, x: String(d.decil)}));
-display(cdS.length ? barrasApiladas(cdS, {x: "x", serie: "macrotema", valor: "pct", crudoKey: "monto_exp",
-   dominioX: deciles, subtitulo: `cada decil suma 100% (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const cdS = compSinDecil.map((d) => ({...d, x: String(d.decil), año: String(d.año)}));
+display(barrasApiladas(cdS, {x: "x", serie: "macrotema", valor: "pct", crudoKey: "monto_exp",
+   dominioX: deciles, faceta: "año", subtitulo: "cada decil suma 100%, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Desglose dentro de programas sociales y becas (Hogares con beca)
+## Desglose dentro de programas sociales y becas (Hogares con beca, 3 años)
 
 ```js
-const dg = desg.filter((d) => d.año === anio).map((d) => ({...d, x: "programas"}));
-display(dg.length ? barrasApiladas(dg, {x: "x", serie: "programa", valor: "pct", crudoKey: "monto_exp",
-   subtitulo: `% del ingreso de programas; incluye JCF (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const dg = desg.map((d) => ({...d, x: String(d.año)}));
+display(barrasApiladas(dg, {x: "x", serie: "programa", valor: "pct", crudoKey: "monto_exp",
+   subtitulo: "% del ingreso de programas; incluye JCF, una barra por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Desglose de programas por decil (Hogares con beca)
+## Desglose de programas por decil (Hogares con beca, 3 años)
 
 ```js
-const dgd = desgDecil.filter((d) => d.año === anio).map((d) => ({...d, x: String(d.decil)}));
-display(dgd.length ? barrasApiladas(dgd, {x: "x", serie: "programa", valor: "pct", crudoKey: "monto_exp",
-   dominioX: deciles, subtitulo: `cada decil suma 100% del ingreso de programas (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const dgd = desgDecil.map((d) => ({...d, x: String(d.decil), año: String(d.año)}));
+display(barrasApiladas(dgd, {x: "x", serie: "programa", valor: "pct", crudoKey: "monto_exp",
+   dominioX: deciles, faceta: "año", subtitulo: "cada decil suma 100% del ingreso de programas, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
 ## Coincidencia con otros programas (Hogares con beca)
@@ -143,23 +134,23 @@ display(barras(c9.map((d) => ({año: String(d.año), pct: d.pct_con_otro})), {x:
   subtitulo: "% de hogares con beca que reciben otro programa (P101-P107)", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Peso de la beca en el ingreso del hogar (Hogares con beca)
+## Peso de la beca en el ingreso del hogar (Hogares con beca, 3 años)
 
 ```js
-const caj = cajitas.filter((d) => d.año === anio);
-const totCaj = caj.reduce((s, d) => s + d.n, 0);
-display(caj.length ? barras(caj.map((d) => ({caja: String(d.caja), pct: totCaj ? d.n / totCaj * 100 : 0, hog: d.n})),
-  {x: "caja", y: "pct", crudoKey: "hog",
-   subtitulo: `% de hogares por intervalo, 0-100 en cajas de 10 (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const totCajAño = new Map();
+for (const d of cajitas) totCajAño.set(d.año, (totCajAño.get(d.año) ?? 0) + d.n);
+const cajFilas = cajitas.map((d) => ({año: String(d.año), caja: String(d.caja), hog: d.n,
+  pct: totCajAño.get(d.año) ? d.n / totCajAño.get(d.año) * 100 : 0}));
+display(barrasFacetadas(cajFilas, {x: "caja", y: "pct", faceta: "año", crudoKey: "hog",
+  titulo: "Peso de la beca en el ingreso del hogar (Hogares con beca)",
+  subtitulo: "% de hogares por intervalo (0-100 en cajas de 10), un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Ingreso per capita comparado (Hogares candidatos)
+## Ingreso per capita comparado (Hogares candidatos, 3 años)
 
 ```js
-const pc = percap.filter((d) => d.año === anio);
-display(pc.length ? barras(pc.map((d) => ({grupo: d.grupo, ing: d.ing_pc_real_prom, hog: d.hogares})),
-  {x: "grupo", y: "ing", formato: "entero", crudoKey: "hog",
-   subtitulo: `Pesos de 2024: con beca vs candidato sin beca (${anio})`, fuente: "Fuente: INEGI (ENIGH)"})
-  : html`<p>Sin datos para ${anio}.</p>`);
+const pcFilas = percap.map((d) => ({año: String(d.año), grupo: d.grupo, ing: d.ing_pc_real_prom, hog: d.hogares}));
+display(barrasFacetadas(pcFilas, {x: "grupo", y: "ing", faceta: "año", formato: "entero", crudoKey: "hog",
+  titulo: "Ingreso per capita comparado (Hogares candidatos)",
+  subtitulo: "Pesos de 2024: con beca vs candidato sin beca, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
