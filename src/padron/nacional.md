@@ -83,7 +83,7 @@ display(barras(porEdad, {x: "edad", y: "tasa",
 
 ```js
 // Porcentaje por sexo dentro de cada año.
-const porSexo = desglosar(padron.filter((d) => d.sexo !== "" && d.sexo != null), {modo: "sexo"});
+const porSexo = desglosar(padron, {modo: "sexo"});
 const totPorAño = new Map();
 for (const d of porSexo) totPorAño.set(d.año, (totPorAño.get(d.año) ?? 0) + d.beneficiarios);
 const sexoPct = porSexo.map((d) => ({año: d.año, serie: d.serie,
@@ -113,7 +113,8 @@ display(lineas(distEdad, {x: "edad", y: "pct", serie: "año",
 
 ```js
 const añoMax = Math.max(...padron.map((d) => d.año));
-const es = padron.filter((d) => d.año === añoMax && d.sexo !== "" && d.sexo != null
+const es = padron.filter((d) => d.año === añoMax
+  && (d.sexo === "FEMENINO" || d.sexo === "MASCULINO")
   && d.edad !== "" && d.edad != null && +d.edad >= 18 && +d.edad <= 29);
 // Porcentaje por sexo dentro de cada edad.
 const porEdadSexo = new Map();

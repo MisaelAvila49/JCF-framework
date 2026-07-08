@@ -21,7 +21,8 @@ function agruparPorAñoSerie(datos, serieKey) {
 
 export function desglosar(datos, {modo = "ninguno", edadMin = 18, edadMax = 29} = {}) {
   if (modo === "sexo") {
-    const conSexo = datos.filter((f) => f.sexo !== "" && f.sexo != null);
+    // Solo FEMENINO/MASCULINO; se omite "SD" (sin dato, residual) y vacio.
+    const conSexo = datos.filter((f) => f.sexo === "FEMENINO" || f.sexo === "MASCULINO");
     return agruparPorAñoSerie(conSexo, "sexo");
   }
   if (modo === "edad") {

@@ -63,7 +63,8 @@ display(barras(evoAgg, {x: "año", y: "tasa",
 
 ```js
 const añoS = Math.max(...padronF.map((d) => d.año));
-const sxe = padronF.filter((d) => d.año === añoS && d.sexo !== "" && d.sexo != null
+const sxe = padronF.filter((d) => d.año === añoS
+  && (d.sexo === "FEMENINO" || d.sexo === "MASCULINO")
   && d.nombre_ent != null && d.nombre_ent !== "");
 const porEntSexo = new Map();
 for (const d of sxe) {

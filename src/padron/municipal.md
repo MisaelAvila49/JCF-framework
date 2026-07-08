@@ -38,7 +38,8 @@ display(barrasH(porMun, {x: "tasa", y: "nombre_mun",
 
 ```js
 const añoS = Math.max(...padronF.map((d) => d.año));
-const sxm = padronF.filter((d) => d.año === añoS && d.sexo !== "" && d.sexo != null
+const sxm = padronF.filter((d) => d.año === añoS
+  && (d.sexo === "FEMENINO" || d.sexo === "MASCULINO")
   && d.nombre_mun != null && d.nombre_mun !== "");
 const porMunSexo = new Map();
 for (const d of sxm) {
