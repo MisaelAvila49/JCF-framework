@@ -19,8 +19,8 @@ const nombresEnt = Array.from(new Set(padron.map((d) => d.nombre_ent)
 Por defecto se muestra la Ciudad de Mexico; cambia el estado para ver otro.
 
 ```js
-const nombreEnt = view(Inputs.text({label: "Estado contiene", value: "Ciudad de Mexico",
-  placeholder: "escribe un estado", datalist: nombresEnt}));
+const nombreEnt = view(Inputs.text({label: "Estado contiene", value: "",
+  placeholder: "escribe un estado (vacio = todos)", datalist: nombresEnt}));
 ```
 ```js
 // Municipios del estado elegido, para autocompletar el segundo campo.
@@ -39,6 +39,12 @@ const padronF = filtrarDatos(padron, {nombreEnt, nombreMun});
 ## Cobertura por municipio (Candidatos, municipal, 2021)
 
 Primer año con candidatos por municipio. Top 25 del filtro por tasa.
+
+Nota: la tasa puede superar el 100%. El numerador (beneficiarios) viene del
+padron administrativo y el denominador (candidatos) del censo 2020; en algunos
+municipios el padron registra mas beneficiarios que los candidatos que el censo
+conto (por movilidad, altas de fuera del municipio o desfase entre fuentes). No
+es un error: son dos fuentes distintas.
 
 ```js
 const porMun = conTasa(agrupar(padronF.filter((d) => d.año === 2021), ["cve_mun", "nombre_mun"]))
@@ -68,13 +74,20 @@ for (const [k, v] of porMunSexo) {
   const mun = k.split("||")[0];
   totMun.set(mun, (totMun.get(mun) ?? 0) + v);
 }
+// Solo municipios con al menos 100 beneficiarios: con pocos casos el % de
+// mujeres se va a 0 o 100 y no es informativo. Se ordena por total (los mas
+// grandes primero).
+const MIN_BENEF = 100;
 const pctMuj = [...totMun.keys()].map((mun) => {
   const fem = porMunSexo.get(mun + "||FEMENINO") ?? 0;
-  return {nombre_mun: mun, fem, pct: totMun.get(mun) ? fem / totMun.get(mun) * 100 : 0};
-}).sort((a, b) => b.pct - a.pct).slice(0, 25);
+  const tot = totMun.get(mun);
+  return {nombre_mun: mun, fem, total: tot, pct: tot ? fem / tot * 100 : 0};
+}).filter((d) => d.total >= MIN_BENEF)
+  .sort((a, b) => b.total - a.total).slice(0, 25);
 display(barrasH(pctMuj, {x: "pct", y: "nombre_mun", crudoKey: "fem",
   titulo: `Porcentaje de mujeres por municipio (Beneficiarios, municipal, ${añoS})`,
-  subtitulo: "% de mujeres entre los beneficiarios (top 25 del filtro)", fuente: "Fuente: STPS"}));
+  subtitulo: `% de mujeres entre los beneficiarios (municipios con >=${MIN_BENEF}, top 25 por tamaño)`,
+  fuente: "Fuente: STPS"}));
 ```
 
 ## Cobertura vs pobreza (Candidatos, municipal, 2021)

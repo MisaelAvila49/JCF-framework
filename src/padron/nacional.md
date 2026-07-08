@@ -3,7 +3,7 @@
 ```js
 import {agrupar, conTasa} from "../components/agregar.js";
 import {desglosar} from "../components/desglose.js";
-import {barras, barrasAgrupadas, lineas, maxProp, compacto, COLOR_SEXO} from "../components/graficas.js";
+import {barras, barrasAgrupadas, lineas, maxProp, compacto, COLOR_SEXO, ESCALA_EDAD} from "../components/graficas.js";
 const padron = FileAttachment("../data/padron_agregado.csv").csv({typed: true});
 const proyeccion = FileAttachment("../data/padron_proyeccion.csv").csv({typed: true});
 const monto = FileAttachment("../data/padron_monto.csv").csv({typed: true});
@@ -53,6 +53,7 @@ if (modo === "ninguno") {
     .map((d) => ({año: String(d.año), serie: d.serie, tasa: d.tasa == null ? 0 : d.tasa, benef: d.beneficiarios}));
   display(barrasAgrupadas(filas, {x: "año", serie: "serie", y: "tasa", crudoKey: "benef",
     colorSerie: modo === "sexo" ? COLOR_SEXO : null,
+    escalaColor: modo === "edad" ? ESCALA_EDAD : null,
     serieLabel: modo === "sexo" ? "Sexo" : "Edad",
     titulo: "Evolucion de la cobertura por " + modoTxt.replace("Por ", "") + " (Candidatos, nacional, 2021-2025)",
     subtitulo: "% de candidatos del padron con beca", fuente: "Fuente: STPS"}));
@@ -60,6 +61,9 @@ if (modo === "ninguno") {
 ```
 
 ## Beneficiarios unicos por año (Beneficiarios, nacional)
+
+Nota: los beneficiarios unicos se deduplican por persona; el dato no conserva
+edad ni sexo, por eso este analisis no se desglosa.
 
 ```js
 const filasU = resumen.map((d) => ({año: String(d.año), unicos: d.unicos}));
@@ -158,6 +162,9 @@ display(barrasAgrupadas(esFilas, {x: "edad", serie: "serie", y: "pct", crudoKey:
 
 ## Monto: gasto mensual del programa (Beneficiarios, nacional)
 
+Nota: el importe del padron se registra por año, sin edad ni sexo; por eso el
+gasto no se desglosa.
+
 ```js
 const filasM = monto.map((d) => ({año: String(d.año), gasto: d.gasto_mensual_mill}));
 display(barras(filasM, {x: "año", y: "gasto", formato: "entero", crudoKey: "gasto",
@@ -166,6 +173,8 @@ display(barras(filasM, {x: "año", y: "gasto", formato: "entero", crudoKey: "gas
 ```
 
 ## Antiguedad: altas nuevas y continuaciones (Beneficiarios, nacional)
+
+Nota: la antiguedad se calcula por año de alta, sin edad ni sexo; no se desglosa.
 
 ```js
 const totA = new Map();

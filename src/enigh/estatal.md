@@ -7,6 +7,8 @@ estadisticamente confiable. Los deciles son nacionales.
 ```js
 import {filtrarDatos} from "../components/filtros.js";
 import {barras, barrasApiladas, barrasH, maxProp} from "../components/graficas.js";
+import {mapaEntidades} from "../components/mapa.js";
+const geoEnt = FileAttachment("../data/mx_entidades.json").json();
 const c5 = FileAttachment("../data/enigh_c5_entidad.csv").csv({typed: true});
 const cob = FileAttachment("../data/enigh_c1_cobertura_estatal.csv").csv({typed: true});
 const dec = FileAttachment("../data/enigh_c3c4_decil_estatal.csv").csv({typed: true});
@@ -48,12 +50,21 @@ display(barrasH(filasD, {x: "pct", y: "nombre_ent", crudoKey: "hog",
   subtitulo: `% de los hogares con beca por entidad (${añoMax})`, fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
+## Mapa: distribucion de hogares con la beca por entidad (año reciente)
+
+```js
+const valDist = new Map(distEnt.map((d) => [d.cve2, totD ? d.con_jcf / totD * 100 : 0]));
+display(mapaEntidades(await geoEnt, valDist, {
+  subtitulo: `% de los hogares con beca por entidad (${añoMax})`, fuente: "Fuente: INEGI (ENIGH)",
+  nombrePorCve: nombrePorEnt, formato: "pct", etiquetaValor: "% hogares"}));
+```
+
 ## Estado
 
 Escribe un estado para ver su detalle (deciles, composicion, programas, cajitas).
 
 ```js
-const nombreEnt = view(Inputs.text({label: "Estado", value: "Ciudad de Mexico",
+const nombreEnt = view(Inputs.text({label: "Estado", value: "",
   placeholder: "escribe un estado", datalist: nombresEnt}));
 ```
 ```js

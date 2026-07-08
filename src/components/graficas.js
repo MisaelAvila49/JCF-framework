@@ -9,6 +9,11 @@ export const PALETA = ["#f59e0b", "#60a5fa", "#a78bfa", "#ea580c", "#34d399", "#
 // Colores fijos por sexo: Femenino naranja, Masculino azul.
 export const COLOR_SEXO = {FEMENINO: "#f59e0b", MASCULINO: "#60a5fa"};
 
+// Escala de color para el desglose por edad: secuencial de oscuro (18) a claro
+// (29), dominio fijo para que el color de cada edad sea estable entre graficas.
+export const ESCALA_EDAD = {type: "linear", domain: [18, 29], scheme: "blues",
+  reverse: true, legend: true, label: "Edad"};
+
 // Maximo de una propiedad numerica sin usar spread (evita "Maximum call stack"
 // con arreglos grandes).
 export function maxProp(datos, prop) {
@@ -80,10 +85,14 @@ export function barras(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
 // para el tooltip (ej. "Sexo", "Edad").
 export function barrasAgrupadas(datos, {x, serie, y, titulo = "", subtitulo = "",
     fuente = "", formato = "pct", colorSerie = null, serieLabel = "Serie",
-    xLabel = null, crudoKey = null} = {}) {
-  const colorOpts = colorSerie
+    xLabel = null, crudoKey = null, escalaColor = null} = {}) {
+  const colorOpts = escalaColor
+    ? escalaColor
+    : colorSerie
     ? {domain: Object.keys(colorSerie), range: Object.values(colorSerie), legend: true}
     : {range: PALETA, legend: true};
+  // Con escala continua (edad), el fill debe ser el valor numerico de la serie.
+  const fillSerie = escalaColor ? (d) => +d[serie] : serie;
   return Plot.plot({
     title: titulo,
     subtitle: subtitulo,
@@ -96,7 +105,7 @@ export function barrasAgrupadas(datos, {x, serie, y, titulo = "", subtitulo = ""
     color: colorOpts,
     marks: [
       Plot.ruleY([0], {stroke: "#e2e8f0"}),
-      Plot.barY(datos, {fx: x, x: serie, y, fill: serie, fillOpacity: 0.85,
+      Plot.barY(datos, {fx: x, x: serie, y, fill: fillSerie, fillOpacity: 0.85,
         channels: {
           [xLabel ?? x]: (d) => d[x],
           [serieLabel]: (d) => d[serie],

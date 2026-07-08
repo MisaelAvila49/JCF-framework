@@ -5,9 +5,16 @@ import {agrupar, conTasa} from "../components/agregar.js";
 import {desglosar} from "../components/desglose.js";
 import {filtrarDatos} from "../components/filtros.js";
 import {barras, barrasAgrupadas, barrasH, dispersion, maxProp, COLOR_SEXO} from "../components/graficas.js";
+import {mapaEntidades} from "../components/mapa.js";
 const padron = FileAttachment("../data/padron_agregado.csv").csv({typed: true});
 const proyeccion = FileAttachment("../data/padron_proyeccion.csv").csv({typed: true});
 const cruces = FileAttachment("../data/padron_cruces.csv").csv({typed: true});
+const geoEnt = FileAttachment("../data/mx_entidades.json").json();
+```
+
+```js
+// Nombre por cve_ent (2 digitos) para los tooltips del mapa.
+const nombrePorCve = new Map(cruces.map((d) => [String(d.cve_ent).padStart(2, "0"), d.nombre_ent]));
 ```
 
 ```js
@@ -19,12 +26,25 @@ const nombresEnt = Array.from(new Set(padron.map((d) => d.nombre_ent)
 ## Filtro
 
 ```js
-const nombreEnt = view(Inputs.text({label: "Estado contiene", value: "Ciudad de Mexico",
-  placeholder: "escribe un estado", datalist: nombresEnt}));
+const nombreEnt = view(Inputs.text({label: "Estado contiene", value: "",
+  placeholder: "escribe un estado (vacio = todos)", datalist: nombresEnt}));
 ```
 ```js
 const padronF = filtrarDatos(padron, {nombreEnt});
 const crucesF = filtrarDatos(cruces, {nombreEnt});
+```
+
+## Mapa de cobertura por entidad (Candidatos, estatal, 2021)
+
+Tasa de cobertura por entidad (todos los estados, no depende del filtro).
+
+```js
+const cobMapa = conTasa(agrupar(padron.filter((d) => d.año === 2021), ["cve_ent"]));
+const valCob = new Map(cobMapa.filter((d) => d.tasa != null)
+  .map((d) => [String(d.cve_ent).padStart(2, "0"), d.tasa]));
+display(mapaEntidades(await geoEnt, valCob, {
+  subtitulo: "% de candidatos con beca (2021)", fuente: "Fuente: STPS",
+  nombrePorCve, formato: "pct", etiquetaValor: "cobertura"}));
 ```
 
 ## Cobertura por entidad (Candidatos, estatal, 2021)

@@ -1,0 +1,67 @@
+// src/components/mapa.js
+// Mapa coropletico de entidades de Mexico con Observable Plot (Plot.geo).
+// El geojson (src/data/mx_entidades.json) identifica cada estado con un codigo
+// ISO en properties.id; aqui se traduce a la cve_ent oficial de INEGI (01-32).
+import * as Plot from "npm:@observablehq/plot";
+import {compacto} from "./graficas.js";
+
+// ISO (properties.id del geojson) -> cve_ent INEGI de dos digitos.
+export const ISO_A_CVE = {
+  "MX-AGU": "01", "MX-BCN": "02", "MX-BCS": "03", "MX-CAM": "04",
+  "MX-COA": "05", "MX-COL": "06", "MX-CHP": "07", "MX-CHH": "08",
+  "MX-CMX": "09", "MX-DUR": "10", "MX-GUA": "11", "MX-GRO": "12",
+  "MX-HID": "13", "MX-JAL": "14", "MX-MEX": "15", "MX-MIC": "16",
+  "MX-MOR": "17", "MX-NAY": "18", "MX-NLE": "19", "MX-OAX": "20",
+  "MX-PUE": "21", "MX-QUE": "22", "MX-ROO": "23", "MX-SLP": "24",
+  "MX-SIN": "25", "MX-SON": "26", "MX-TAB": "27", "MX-TAM": "28",
+  "MX-TLA": "29", "MX-VER": "30", "MX-YUC": "31", "MX-ZAC": "32",
+};
+
+// Escala secuencial de rojos de la marca Social Data (claro -> oscuro).
+export const REDS = ["#fde8ea", "#f9b8bf", "#f28791", "#e85463", "#d42234", "#a3121f"];
+
+// Dibuja un mapa coropletico. geo: FeatureCollection de entidades.
+// valores: Map de cve_ent (2 digitos) -> numero a colorear.
+// nombrePorCve: Map cve_ent -> nombre (para el tooltip).
+// formato "pct" formatea el valor con %, "entero" lo colapsa a K/M.
+export function mapaEntidades(geo, valores, {titulo = "", subtitulo = "",
+    fuente = "", nombrePorCve = null, formato = "pct", etiquetaValor = "valor"} = {}) {
+  // Adjunta el valor a cada feature (por cve_ent).
+  const feats = geo.features.map((f) => {
+    const cve = ISO_A_CVE[f.properties.id];
+    const v = valores.get(cve);
+    return {...f, properties: {...f.properties, cve, valor: v ?? null,
+      nombre: nombrePorCve?.get(cve) ?? f.properties.name}};
+  });
+  return Plot.plot({
+    title: titulo,
+    subtitle: subtitulo,
+    caption: fuente,
+    projection: {type: "mercator", domain: {type: "FeatureCollection", features: feats}},
+    width: 720,
+    height: 460,
+    color: {
+      scheme: undefined,
+      range: REDS,
+      type: "quantize",
+      n: 6,
+      legend: true,
+      label: etiquetaValor,
+      unknown: "#eee",
+      tickFormat: (d) => formato === "pct" ? `${(+d).toFixed(0)}%` : compacto(d),
+    },
+    marks: [
+      Plot.geo(feats, {
+        fill: (d) => d.properties.valor,
+        stroke: "#fff",
+        strokeWidth: 0.5,
+        channels: {
+          Entidad: (d) => d.properties.nombre,
+          [etiquetaValor]: (d) => d.properties.valor == null ? "sin dato"
+            : (formato === "pct" ? `${(+d.properties.valor).toFixed(1)}%` : compacto(d.properties.valor)),
+        },
+        tip: true,
+      }),
+    ],
+  });
+}
