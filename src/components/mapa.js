@@ -68,3 +68,37 @@ export function mapaEntidades(geo, valores, {titulo = "", subtitulo = "",
     ],
   });
 }
+
+// Mapa coropletico de los municipios de un estado. geo: FeatureCollection del
+// estado (properties.CVEGEO = cve_mun de 5 digitos, NOM_MUN = nombre).
+// valores: Map cve_mun -> numero. Colormap fijo 0-100 para porcentajes.
+export function mapaMunicipios(geo, valores, {titulo = "", subtitulo = "",
+    fuente = "", formato = "pct", etiquetaValor = "valor"} = {}) {
+  const feats = geo.features.map((f) => {
+    const cve = String(f.properties.CVEGEO ?? f.properties.CVE_MUN);
+    return {...f, properties: {...f.properties, cve, valor: valores.get(cve) ?? null,
+      nombre: f.properties.NOM_MUN}};
+  });
+  return Plot.plot({
+    title: titulo,
+    subtitle: subtitulo,
+    caption: fuente,
+    projection: {type: "mercator", domain: {type: "FeatureCollection", features: feats}},
+    width: 720,
+    height: 480,
+    color: {
+      range: REDS, type: "quantize", n: 6,
+      ...(formato === "pct" ? {domain: [0, 100]} : {}),
+      legend: true, label: etiquetaValor, unknown: "#eee",
+      tickFormat: (d) => formato === "pct" ? `${(+d).toFixed(0)}%` : compacto(d),
+    },
+    marks: [
+      Plot.geo(feats, {fill: (d) => d.properties.valor, stroke: "#fff", strokeWidth: 0.4,
+        channels: {
+          Municipio: (d) => d.properties.nombre,
+          [etiquetaValor]: (d) => d.properties.valor == null ? "sin dato"
+            : (formato === "pct" ? `${(+d.properties.valor).toFixed(1)}%` : compacto(d.properties.valor)),
+        }, tip: true}),
+    ],
+  });
+}
