@@ -3,3 +3,4 @@ dist/
 .observablehq/
 src/.observablehq/
 src/data/*.csv
+src/data/municipios/
