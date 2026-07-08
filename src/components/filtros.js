@@ -15,12 +15,12 @@ function normalizar(texto) {
 // Aplica los filtros activos. opciones:
 //  - usarEdadSexo (bool): si true, deja solo filas con edad y sexo, filtra por
 //    el rango [edadMin, edadMax] y por sexo (si no es "Todos").
-//  - nombreEnt (texto): nombre exacto de entidad, o "Todos" para no filtrar. El
-//    valor viene de un select (autocompletar), asi que es igualdad exacta.
+//  - nombreEnt (texto): substring del nombre de entidad (el usuario escribe); si
+//    esta vacio, no filtra. Compara sin acentos ni mayusculas.
 //  - nombreMun (texto): igual para el municipio.
 export function filtrarDatos(datos, opciones = {}) {
   const {usarEdadSexo = false, edadMin = 18, edadMax = 29, sexo = "Todos",
-         nombreEnt = "Todos", nombreMun = "Todos"} = opciones;
+         nombreEnt = "", nombreMun = ""} = opciones;
   let filas = datos;
   if (usarEdadSexo) {
     filas = filas.filter((f) => f.edad !== "" && f.edad != null
@@ -29,13 +29,13 @@ export function filtrarDatos(datos, opciones = {}) {
                                 && Number(f.edad) <= edadMax);
     if (sexo !== "Todos") filas = filas.filter((f) => f.sexo === sexo);
   }
-  if (nombreEnt && nombreEnt !== "Todos") {
+  if (nombreEnt) {
     const q = normalizar(nombreEnt);
-    filas = filas.filter((f) => normalizar(f.nombre_ent) === q);
+    filas = filas.filter((f) => normalizar(f.nombre_ent).includes(q));
   }
-  if (nombreMun && nombreMun !== "Todos") {
+  if (nombreMun) {
     const q = normalizar(nombreMun);
-    filas = filas.filter((f) => normalizar(f.nombre_mun) === q);
+    filas = filas.filter((f) => normalizar(f.nombre_mun).includes(q));
   }
   return filas;
 }
