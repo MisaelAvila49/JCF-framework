@@ -6,6 +6,7 @@ import {desglosar} from "../components/desglose.js";
 import {filtrarDatos} from "../components/filtros.js";
 import {barras, barrasAgrupadas, barrasH, dispersion, maxProp, COLOR_SEXO} from "../components/graficas.js";
 import {mapaEntidades} from "../components/mapa.js";
+import {modoDesde, sufijoFiltro, nombresUnicos} from "../components/panel.js";
 const padron = FileAttachment("../data/padron_agregado.csv").csv({typed: true});
 const proyeccion = FileAttachment("../data/padron_proyeccion.csv").csv({typed: true});
 const cruces = FileAttachment("../data/padron_cruces.csv").csv({typed: true});
@@ -18,19 +19,39 @@ const nombrePorCve = new Map(cruces.map((d) => [String(d.cve_ent).padStart(2, "0
 ```
 
 ```js
-// Lista de nombres de entidad para autocompletar el campo de texto.
-const nombresEnt = Array.from(new Set(padron.map((d) => d.nombre_ent)
-  .filter((n) => n != null && n !== ""))).sort((a, b) => a.localeCompare(b, "es"));
+const nombresEnt = nombresUnicos(padron, "nombre_ent");
 ```
 
-## Filtro
+## Filtros
+
+El desglose por edad/sexo aplica a cobertura, evolucion, perfil y concentracion.
+Las dispersiones, marginacion, cuadrantes y los mapas no dependen del desglose.
 
 ```js
 const nombreEnt = view(Inputs.text({label: "Estado contiene", value: "",
   placeholder: "escribe un estado (vacio = todos)", datalist: nombresEnt}));
 ```
 ```js
-const padronF = filtrarDatos(padron, {nombreEnt});
+const modoTxt = view(Inputs.select(["Sin desglose", "Por sexo", "Por edad"], {label: "Desglose", value: "Sin desglose"}));
+```
+```js
+const modo = modoDesde(modoTxt);
+```
+```js
+const edadMin = modo === "edad" ? view(Inputs.range([18, 29], {step: 1, value: 18, label: "Edad minima"})) : 18;
+```
+```js
+const edadMax = modo === "edad" ? view(Inputs.range([18, 29], {step: 1, value: 29, label: "Edad maxima"})) : 29;
+```
+```js
+// Padron filtrado por estado y (si el desglose lo pide) por rango de edad / sexo.
+const padronF = (() => {
+  let f = filtrarDatos(padron, {nombreEnt});
+  if (modo === "sexo") f = f.filter((d) => d.sexo === "FEMENINO" || d.sexo === "MASCULINO");
+  if (modo === "edad") f = f.filter((d) => d.edad !== "" && d.edad != null
+    && +d.edad >= edadMin && +d.edad <= edadMax);
+  return f;
+})();
 const crucesF = filtrarDatos(cruces, {nombreEnt});
 ```
 
@@ -57,7 +78,7 @@ const porEnt = conTasa(agrupar(padronF.filter((d) => d.año === 2021), ["cve_ent
   .map((d) => ({nombre_ent: d.nombre_ent, tasa: d.tasa, benef: d.beneficiarios}));
 display(barrasH(porEnt, {x: "tasa", y: "nombre_ent", crudoKey: "benef",
   titulo: "Cobertura por entidad (Candidatos, estatal, 2021)",
-  subtitulo: "% de candidatos con beca", fuente: "Fuente: STPS"}));
+  subtitulo: "% de candidatos con beca" + sufijoFiltro(modo), fuente: "Fuente: STPS"}));
 ```
 
 ## Evolucion de la cobertura estatal (Candidatos, estatal, 2019-2025)
@@ -135,38 +156,16 @@ display(mapaEntidades(await geoEnt, valMuj, {
 ## Concentracion geografica por entidad (Beneficiarios, estatal)
 
 ```js
-const modoTxt = view(Inputs.select(["Sin desglose", "Por sexo", "Por edad"], {label: "Desglose", value: "Sin desglose"}));
-```
-```js
-const modo = modoTxt === "Por sexo" ? "sexo" : modoTxt === "Por edad" ? "edad" : "ninguno";
-```
-```js
-const edadMin = modo === "edad" ? view(Inputs.range([18, 29], {step: 1, value: 18, label: "Edad minima"})) : 18;
-```
-```js
-const edadMax = modo === "edad" ? view(Inputs.range([18, 29], {step: 1, value: 29, label: "Edad maxima"})) : 29;
-```
-```js
 const añoC = maxProp(padronF, "año");
 const delAñoC = padronF.filter((d) => d.año === añoC && d.nombre_ent != null && d.nombre_ent !== "");
-if (modo === "ninguno") {
+{
   const porE = agrupar(delAñoC, ["nombre_ent"]);
   const tot = porE.reduce((s, d) => s + d.beneficiarios, 0);
   const filas = porE.map((d) => ({nombre_ent: d.nombre_ent, benef: d.beneficiarios,
     pct: tot ? d.beneficiarios / tot * 100 : 0}));
   display(barrasH(filas, {x: "pct", y: "nombre_ent", crudoKey: "benef",
     titulo: `Concentracion por entidad (Beneficiarios, estatal, ${añoC})`,
-    subtitulo: "% del total del filtro", fuente: "Fuente: STPS"}));
-} else {
-  const des = desglosar(delAñoC, {modo, edadMin, edadMax});
-  const tot = des.reduce((s, d) => s + d.beneficiarios, 0);
-  const filas = des.map((d) => ({serie: d.serie, benef: d.beneficiarios,
-    pct: tot ? d.beneficiarios / tot * 100 : 0, x: "total"}));
-  display(barrasAgrupadas(filas, {x: "x", serie: "serie", y: "pct", crudoKey: "benef",
-    colorSerie: modo === "sexo" ? COLOR_SEXO : null,
-    serieLabel: modo === "sexo" ? "Sexo" : "Edad", xLabel: "",
-    titulo: `Concentracion por ${modoTxt.replace("Por ", "")} (Beneficiarios, estatal, ${añoC})`,
-    subtitulo: "% del total del filtro", fuente: "Fuente: STPS"}));
+    subtitulo: "% del total del filtro" + sufijoFiltro(modo), fuente: "Fuente: STPS"}));
 }
 ```
 
