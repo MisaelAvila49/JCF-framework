@@ -22,6 +22,8 @@ const ARCHIVOS = [
   "enigh_c10_cajitas_estatal.csv",
   "enigh_ingreso_percapita_estatal.csv",
   "enigh_composicion_sin_beca_por_decil.csv",
+  "enigh_persona_beca.csv",
+  "enigh_persona_candidato.csv",
   "enigh_personas_sexo.csv",
   "enigh_personas_edad.csv",
   "enigh_c1_cobertura.csv",
