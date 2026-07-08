@@ -41,11 +41,19 @@ export default {
       ]
     },
     {
-      name: "ENIGH JCF",
+      name: "ENIGH Hogares",
       open: true,
       pages: [
-        { name: "Nacional", path: "/enigh/nacional" },
-        { name: "Estatal", path: "/enigh/estatal" }
+        { name: "Nacional", path: "/enigh-hogares/nacional" },
+        { name: "Estatal", path: "/enigh-hogares/estatal" }
+      ]
+    },
+    {
+      name: "ENIGH Personas",
+      open: true,
+      pages: [
+        { name: "Nacional", path: "/enigh-personas/nacional" },
+        { name: "Estatal", path: "/enigh-personas/estatal" }
       ]
     }
   ],

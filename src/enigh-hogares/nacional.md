@@ -1,4 +1,4 @@
-# ENIGH JCF — Nacional
+# ENIGH Hogares — Nacional
 
 Fuente: INEGI, ENIGH (2020, 2022, 2024). La muestra de hogares con la beca es
 chica. Los deciles son nacionales.

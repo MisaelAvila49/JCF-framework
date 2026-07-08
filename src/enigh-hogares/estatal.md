@@ -1,4 +1,4 @@
-# ENIGH JCF — Estatal
+# ENIGH Hogares — Estatal
 
 Fuente: INEGI, ENIGH. Advertencia: la muestra de hogares con la beca por entidad
 es muy chica (decenas de hogares); todo este detalle es solo referencia, no es
