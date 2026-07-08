@@ -4,9 +4,33 @@
 import {agrupar, conTasa} from "../components/agregar.js";
 import {filtrarDatos} from "../components/filtros.js";
 import {barrasH, dispersion, maxProp} from "../components/graficas.js";
+import {mapaMunicipios} from "../components/mapa.js";
 import {modoDesde, sufijoFiltro, nombresUnicos} from "../components/panel.js";
 const padron = FileAttachment("../data/padron_agregado.csv").csv({typed: true});
 const cruces = FileAttachment("../data/padron_cruces.csv").csv({typed: true});
+```
+
+```js
+// Catalogo estatico de geojson municipal por cve_ent (carga perezosa: Observable
+// solo descarga el que se lee). Los archivos vienen de descargar-municipios.mjs.
+const GEO_MUN = {
+  "01": FileAttachment("../data/municipios/01.json"), "02": FileAttachment("../data/municipios/02.json"),
+  "03": FileAttachment("../data/municipios/03.json"), "04": FileAttachment("../data/municipios/04.json"),
+  "05": FileAttachment("../data/municipios/05.json"), "06": FileAttachment("../data/municipios/06.json"),
+  "07": FileAttachment("../data/municipios/07.json"), "08": FileAttachment("../data/municipios/08.json"),
+  "09": FileAttachment("../data/municipios/09.json"), "10": FileAttachment("../data/municipios/10.json"),
+  "11": FileAttachment("../data/municipios/11.json"), "12": FileAttachment("../data/municipios/12.json"),
+  "13": FileAttachment("../data/municipios/13.json"), "14": FileAttachment("../data/municipios/14.json"),
+  "15": FileAttachment("../data/municipios/15.json"), "16": FileAttachment("../data/municipios/16.json"),
+  "17": FileAttachment("../data/municipios/17.json"), "18": FileAttachment("../data/municipios/18.json"),
+  "19": FileAttachment("../data/municipios/19.json"), "20": FileAttachment("../data/municipios/20.json"),
+  "21": FileAttachment("../data/municipios/21.json"), "22": FileAttachment("../data/municipios/22.json"),
+  "23": FileAttachment("../data/municipios/23.json"), "24": FileAttachment("../data/municipios/24.json"),
+  "25": FileAttachment("../data/municipios/25.json"), "26": FileAttachment("../data/municipios/26.json"),
+  "27": FileAttachment("../data/municipios/27.json"), "28": FileAttachment("../data/municipios/28.json"),
+  "29": FileAttachment("../data/municipios/29.json"), "30": FileAttachment("../data/municipios/30.json"),
+  "31": FileAttachment("../data/municipios/31.json"), "32": FileAttachment("../data/municipios/32.json"),
+};
 ```
 
 ```js
@@ -51,6 +75,34 @@ const padronF = (() => {
     && +d.edad >= edadMin && +d.edad <= edadMax);
   return f;
 })();
+```
+
+## Mapa de cobertura por municipio (Candidatos, municipal, 2021)
+
+Requiere escribir un estado. Muestra los municipios de ese estado; colormap 0-100%.
+
+```js
+// cve_ent del estado escrito (para elegir el geojson municipal).
+const cveEntSel = (() => {
+  const q = (nombreEnt ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  if (!q) return null;
+  const hit = padron.find((d) => (d.nombre_ent ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(q));
+  return hit ? String(hit.cve_ent).padStart(2, "0") : null;
+})();
+```
+```js
+if (!cveEntSel) {
+  display(html`<p>Escribe un estado para ver el mapa municipal.</p>`);
+} else {
+  const geo = await GEO_MUN[cveEntSel].json();
+  const cob = conTasa(agrupar(padron.filter((d) => d.año === 2021
+    && String(d.cve_ent).padStart(2, "0") === cveEntSel), ["cve_mun"]));
+  const valores = new Map(cob.filter((d) => d.tasa != null)
+    .map((d) => [String(d.cve_mun).padStart(5, "0"), d.tasa]));
+  display(mapaMunicipios(geo, valores, {
+    subtitulo: "% de candidatos con beca por municipio (2021)", fuente: "Fuente: STPS",
+    formato: "pct", etiquetaValor: "cobertura"}));
+}
 ```
 
 ## Cobertura por municipio (Candidatos, municipal, 2021)
