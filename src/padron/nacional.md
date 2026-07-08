@@ -3,7 +3,7 @@
 ```js
 import {agrupar, conTasa} from "../components/agregar.js";
 import {desglosar} from "../components/desglose.js";
-import {barras, barrasAgrupadas, lineas} from "../components/graficas.js";
+import {barras, barrasAgrupadas, lineas, maxProp, compacto, COLOR_SEXO} from "../components/graficas.js";
 const padron = FileAttachment("../data/padron_agregado.csv").csv({typed: true});
 const proyeccion = FileAttachment("../data/padron_proyeccion.csv").csv({typed: true});
 const monto = FileAttachment("../data/padron_monto.csv").csv({typed: true});
@@ -11,19 +11,20 @@ const antiguedad = FileAttachment("../data/padron_antiguedad.csv").csv({typed: t
 const resumen = FileAttachment("../data/padron_resumen_dedup.csv").csv({typed: true});
 ```
 
-## Numeralia (Candidatos, nacional, 2020)
+## Cobertura nacional 2020
 
 ```js
-const cob2020 = conTasa(agrupar(padron.filter((d) => d.año === 2020), ["año"]))[0];
+const proyNac2020 = proyeccion.find((d) => (d.cve_ent === 0 || d.cve_ent === "00") && d.año === 2020);
 display(html`<p>En 2020 el padron registra
-  <strong>${cob2020.beneficiarios.toLocaleString()}</strong> beneficiarios frente a
-  <strong>${cob2020.candidatos.toLocaleString()}</strong> candidatos del censo, una
-  tasa de cobertura de <strong>${cob2020.tasa.toFixed(1)}%</strong>.</p>`);
+  <strong>${compacto(proyNac2020.beneficiarios)}</strong> beneficiarios frente a
+  <strong>${compacto(proyNac2020.candidatos_estimados)}</strong> candidatos estimados,
+  una tasa de cobertura de <strong>${(proyNac2020.tasa * 100).toFixed(1)}%</strong>.</p>`);
 ```
 
 ## Evolucion de la cobertura (Candidatos, nacional, 2019-2025)
 
-Tasa de cobertura con universo estimado por proyeccion (factor base 2020).
+Tasa de cobertura con universo estimado por proyeccion (factor base 2020). El
+desglose usa el padron (edad/sexo desde 2021).
 
 ```js
 const modoTxt = view(Inputs.select(["Sin desglose", "Por sexo", "Por edad"], {label: "Desglose", value: "Sin desglose"}));
@@ -38,21 +39,22 @@ const edadMin = modo === "edad" ? view(Inputs.range([18, 29], {step: 1, value: 1
 const edadMax = modo === "edad" ? view(Inputs.range([18, 29], {step: 1, value: 29, label: "Edad maxima"})) : 29;
 ```
 ```js
-// Evolucion sin desglose usa la proyeccion nacional (cve_ent "00"); con desglose
-// usa el padron (que trae edad/sexo) y su tasa vs candidatos del padron.
 const evoNac = proyeccion.filter((d) => d.cve_ent === 0 || d.cve_ent === "00");
 ```
 ```js
 if (modo === "ninguno") {
-  const filas = evoNac.map((d) => ({año: d.año, tasa: d.tasa * 100}));
-  display(barras(filas, {x: "año", y: "tasa",
+  const filas = evoNac.map((d) => ({año: String(d.año), tasa: d.tasa * 100, benef: d.beneficiarios}));
+  display(barras(filas, {x: "año", y: "tasa", crudoKey: "benef",
     titulo: "Evolucion de la cobertura (Candidatos, nacional, 2019-2025)",
     subtitulo: "% de candidatos estimados con beca", fuente: "Fuente: STPS / CONAPO"}));
 } else {
   const filas = conTasa(desglosar(padron, {modo, edadMin, edadMax}))
-    .map((d) => ({año: d.año, serie: d.serie, tasa: d.tasa == null ? 0 : d.tasa}));
-  display(barrasAgrupadas(filas, {x: "año", serie: "serie", y: "tasa",
-    titulo: "Evolucion de la cobertura por " + modoTxt.replace("Por ", "") + " (Candidatos, nacional)",
+    .filter((d) => d.candidatos > 0)
+    .map((d) => ({año: String(d.año), serie: d.serie, tasa: d.tasa == null ? 0 : d.tasa, benef: d.beneficiarios}));
+  display(barrasAgrupadas(filas, {x: "año", serie: "serie", y: "tasa", crudoKey: "benef",
+    colorSerie: modo === "sexo" ? COLOR_SEXO : null,
+    serieLabel: modo === "sexo" ? "Sexo" : "Edad",
+    titulo: "Evolucion de la cobertura por " + modoTxt.replace("Por ", "") + " (Candidatos, nacional, 2021-2025)",
     subtitulo: "% de candidatos del padron con beca", fuente: "Fuente: STPS"}));
 }
 ```
@@ -60,35 +62,38 @@ if (modo === "ninguno") {
 ## Beneficiarios unicos por año (Beneficiarios, nacional)
 
 ```js
-const filasU = resumen.map((d) => ({año: d.año, unicos: d.unicos}));
-display(barras(filasU, {x: "año", y: "unicos", formato: "entero",
+const filasU = resumen.map((d) => ({año: String(d.año), unicos: d.unicos}));
+display(barras(filasU, {x: "año", y: "unicos", formato: "entero", crudoKey: "unicos",
   titulo: "Beneficiarios unicos por año (Beneficiarios, nacional)",
   subtitulo: "Personas distintas deduplicadas", fuente: "Fuente: STPS"}));
 ```
 
-## Cobertura por edad (Candidatos, nacional, 2020)
+## Cobertura por edad (Candidatos, nacional, 2021)
+
+Primer año con candidatos por edad en el padron.
 
 ```js
 const porEdad = conTasa(agrupar(
-  padron.filter((d) => d.edad !== "" && d.edad != null
+  padron.filter((d) => d.año === 2021 && d.edad !== "" && d.edad != null
     && +d.edad >= 18 && +d.edad <= 29), ["edad"]))
+  .filter((d) => d.tasa != null)
   .sort((a, b) => a.edad - b.edad)
-  .map((d) => ({edad: String(d.edad), tasa: d.tasa}));
-display(barras(porEdad, {x: "edad", y: "tasa",
-  titulo: "Cobertura por edad (Candidatos, nacional, 2020)",
+  .map((d) => ({edad: String(d.edad), tasa: d.tasa, benef: d.beneficiarios}));
+display(barras(porEdad, {x: "edad", y: "tasa", crudoKey: "benef",
+  titulo: "Cobertura por edad (Candidatos, nacional, 2021)",
   subtitulo: "% de candidatos con beca por edad", fuente: "Fuente: STPS"}));
 ```
 
 ## Perfil por sexo (Beneficiarios, nacional)
 
 ```js
-// Porcentaje por sexo dentro de cada año.
 const porSexo = desglosar(padron, {modo: "sexo"});
 const totPorAño = new Map();
 for (const d of porSexo) totPorAño.set(d.año, (totPorAño.get(d.año) ?? 0) + d.beneficiarios);
-const sexoPct = porSexo.map((d) => ({año: d.año, serie: d.serie,
+const sexoPct = porSexo.map((d) => ({año: String(d.año), serie: d.serie, benef: d.beneficiarios,
   pct: totPorAño.get(d.año) ? d.beneficiarios / totPorAño.get(d.año) * 100 : 0}));
-display(barrasAgrupadas(sexoPct, {x: "año", serie: "serie", y: "pct",
+display(barrasAgrupadas(sexoPct, {x: "año", serie: "serie", y: "pct", crudoKey: "benef",
+  colorSerie: COLOR_SEXO, serieLabel: "Sexo",
   titulo: "Perfil por sexo (Beneficiarios, nacional)",
   subtitulo: "% de beneficiarios por sexo y año", fuente: "Fuente: STPS"}));
 ```
@@ -96,7 +101,6 @@ display(barrasAgrupadas(sexoPct, {x: "año", serie: "serie", y: "pct",
 ## Distribucion por edad (Beneficiarios, nacional)
 
 ```js
-// Una linea por año: % del total de beneficiarios de ese año, por edad.
 const conEdad = padron.filter((d) => d.edad !== "" && d.edad != null && +d.edad <= 32);
 const porAñoEdad = desglosar(conEdad, {modo: "edad", edadMin: 18, edadMax: 32});
 const totAño = new Map();
@@ -112,11 +116,10 @@ display(lineas(distEdad, {x: "edad", y: "pct", serie: "año",
 ## Distribucion por edad y sexo (Beneficiarios, nacional, año reciente)
 
 ```js
-const añoMax = Math.max(...padron.map((d) => d.año));
+const añoMax = maxProp(padron, "año");
 const es = padron.filter((d) => d.año === añoMax
   && (d.sexo === "FEMENINO" || d.sexo === "MASCULINO")
   && d.edad !== "" && d.edad != null && +d.edad >= 18 && +d.edad <= 29);
-// Porcentaje por sexo dentro de cada edad.
 const porEdadSexo = new Map();
 for (const d of es) {
   const k = d.edad + "||" + d.sexo;
@@ -129,9 +132,10 @@ for (const [k, v] of porEdadSexo) {
 }
 const esFilas = [...porEdadSexo].map(([k, v]) => {
   const [edad, sexo] = k.split("||");
-  return {edad, serie: sexo, pct: totEdad.get(edad) ? v / totEdad.get(edad) * 100 : 0};
+  return {edad, serie: sexo, benef: v, pct: totEdad.get(edad) ? v / totEdad.get(edad) * 100 : 0};
 }).sort((a, b) => +a.edad - +b.edad);
-display(barrasAgrupadas(esFilas, {x: "edad", serie: "serie", y: "pct",
+display(barrasAgrupadas(esFilas, {x: "edad", serie: "serie", y: "pct", crudoKey: "benef",
+  colorSerie: COLOR_SEXO, serieLabel: "Sexo", xLabel: "Edad",
   titulo: `Distribucion por edad y sexo (Beneficiarios, nacional, ${añoMax})`,
   subtitulo: "% por sexo dentro de cada edad", fuente: "Fuente: STPS"}));
 ```
@@ -139,8 +143,8 @@ display(barrasAgrupadas(esFilas, {x: "edad", serie: "serie", y: "pct",
 ## Monto: gasto mensual del programa (Beneficiarios, nacional)
 
 ```js
-const filasM = monto.map((d) => ({año: d.año, gasto: d.gasto_mensual_mill}));
-display(barras(filasM, {x: "año", y: "gasto", formato: "entero",
+const filasM = monto.map((d) => ({año: String(d.año), gasto: d.gasto_mensual_mill}));
+display(barras(filasM, {x: "año", y: "gasto", formato: "entero", crudoKey: "gasto",
   titulo: "Gasto mensual del programa (Beneficiarios, nacional)",
   subtitulo: "Millones de pesos de 2024", fuente: "Fuente: STPS"}));
 ```
@@ -148,12 +152,12 @@ display(barras(filasM, {x: "año", y: "gasto", formato: "entero",
 ## Antiguedad: altas nuevas y continuaciones (Beneficiarios, nacional)
 
 ```js
-// Porcentaje de nuevas y continuaciones dentro de cada año.
 const totA = new Map();
 for (const d of antiguedad) totA.set(d.año, (totA.get(d.año) ?? 0) + d.n);
-const antigPct = antiguedad.map((d) => ({año: d.año, serie: d.tipo,
+const antigPct = antiguedad.map((d) => ({año: String(d.año), serie: d.tipo, benef: d.n,
   pct: totA.get(d.año) ? d.n / totA.get(d.año) * 100 : 0}));
-display(barrasAgrupadas(antigPct, {x: "año", serie: "serie", y: "pct",
+display(barrasAgrupadas(antigPct, {x: "año", serie: "serie", y: "pct", crudoKey: "benef",
+  serieLabel: "Tipo",
   titulo: "Altas nuevas y continuaciones (Beneficiarios, nacional)",
   subtitulo: "% de beneficiarios por tipo y año", fuente: "Fuente: STPS"}));
 ```
