@@ -209,3 +209,29 @@ export function barrasH(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
     ],
   });
 }
+
+// Barras facetadas: un mini-panel por valor de `faceta` (ej. año), lado a lado.
+export function barrasFacetadas(datos, {x, y, faceta, titulo = "", subtitulo = "",
+    fuente = "", formato = "pct", crudoKey = null} = {}) {
+  return Plot.plot({
+    title: titulo,
+    subtitle: subtitulo,
+    caption: fuente,
+    marginBottom: 40,
+    fx: {label: faceta},
+    x: {label: x, tickRotate: 0},
+    y: ejeValor(formato, y),
+    marks: [
+      Plot.ruleY([0], {stroke: "#e2e8f0"}),
+      Plot.barY(datos, {fx: faceta, x, y, fill: "#60a5fa", fillOpacity: 0.85,
+        channels: {
+          [faceta]: (d) => d[faceta],
+          [x]: (d) => d[x],
+          [formato === "pct" ? "Porcentaje" : "Valor"]: (d) =>
+            formato === "pct" ? `${(+d[y]).toFixed(1)}%` : compacto(d[y]),
+          ...(crudoKey ? {"Poblacion": (d) => compacto(d[crudoKey])} : {}),
+        },
+        tip: {format: {fx: false, x: false, y: false}}}),
+    ],
+  });
+}
