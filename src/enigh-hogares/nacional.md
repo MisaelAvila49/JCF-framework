@@ -4,7 +4,7 @@ Fuente: INEGI, ENIGH (2020, 2022, 2024). La muestra de hogares con la beca es
 chica. Los deciles son nacionales.
 
 ```js
-import {barras, barrasApiladas, maxProp} from "../components/graficas.js";
+import {barras, barrasApiladas, barrasFacetadas, maxProp} from "../components/graficas.js";
 const c1 = FileAttachment("../data/enigh_c1_cobertura.csv").csv({typed: true});
 const dec = FileAttachment("../data/enigh_c3c4_decil.csv").csv({typed: true});
 const persSexo = FileAttachment("../data/enigh_personas_sexo.csv").csv({typed: true});
@@ -23,11 +23,12 @@ const deciles = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
 ## Año
 
-Los analisis por decil, composicion, cajitas e ingreso usan el año elegido. Las
-series por año (cobertura, otros programas) muestran los tres años.
+Las graficas por decil muestran los tres años (paneles lado a lado). La
+composicion, cajitas e ingreso usan el año elegido (una barra apilada por año
+seria ilegible con los tres a la vez).
 
 ```js
-const anio = view(Inputs.select([2024, 2022, 2020], {label: "Año", value: 2024}));
+const anio = view(Inputs.select([2024, 2022, 2020], {label: "Año (composicion / cajitas / ingreso)", value: 2024}));
 ```
 
 ## Cobertura por año (Hogares con un integrante candidato)
@@ -38,24 +39,24 @@ display(barras(c1.map((d) => ({año: String(d.año), pct: d.pct_con_jcf, hog: d.
    subtitulo: "% de hogares con candidato que reciben la beca", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Cobertura por decil de ingreso
+## Cobertura por decil de ingreso (3 años)
 
 ```js
-const covDec = dec.filter((d) => d.año === anio)
-  .map((d) => ({decil: String(d.decil), pct: d.tasa_decil * 100, hog: d.con_jcf}))
-  .sort((a, b) => +a.decil - +b.decil);
-display(barras(covDec, {x: "decil", y: "pct", crudoKey: "hog",
-  subtitulo: `% de candidatos con beca por decil nacional (${anio})`, fuente: "Fuente: INEGI (ENIGH)"}));
+const covDec = dec.map((d) => ({año: String(d.año), decil: String(d.decil),
+  pct: d.tasa_decil * 100, hog: d.con_jcf})).sort((a, b) => +a.decil - +b.decil);
+display(barrasFacetadas(covDec, {x: "decil", y: "pct", faceta: "año", crudoKey: "hog",
+  titulo: "Cobertura por decil (Hogares con un integrante candidato)",
+  subtitulo: "% de candidatos con beca por decil, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
-## Reparto de la beca por decil
+## Reparto de la beca por decil (3 años)
 
 ```js
-const repDec = dec.filter((d) => d.año === anio)
-  .map((d) => ({decil: String(d.decil), pct: d.reparto_jcf * 100, hog: d.con_jcf}))
-  .sort((a, b) => +a.decil - +b.decil);
-display(barras(repDec, {x: "decil", y: "pct", crudoKey: "hog",
-  subtitulo: `% de los hogares con beca en cada decil (${anio})`, fuente: "Fuente: INEGI (ENIGH)"}));
+const repDec = dec.map((d) => ({año: String(d.año), decil: String(d.decil),
+  pct: d.reparto_jcf * 100, hog: d.con_jcf})).sort((a, b) => +a.decil - +b.decil);
+display(barrasFacetadas(repDec, {x: "decil", y: "pct", faceta: "año", crudoKey: "hog",
+  titulo: "Reparto de la beca por decil (Hogares con un integrante con beca)",
+  subtitulo: "% de los hogares con beca en cada decil, un panel por año", fuente: "Fuente: INEGI (ENIGH)"}));
 ```
 
 ## Personas con la beca por sexo
