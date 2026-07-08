@@ -45,6 +45,9 @@ export function mapaEntidades(geo, valores, {titulo = "", subtitulo = "",
       range: REDS,
       type: "quantize",
       n: 6,
+      // El colormap de porcentajes siempre va de 0 a 100 (dominio fijo) para
+      // que el color sea comparable entre mapas.
+      ...(formato === "pct" ? {domain: [0, 100]} : {}),
       legend: true,
       label: etiquetaValor,
       unknown: "#eee",

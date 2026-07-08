@@ -113,6 +113,25 @@ display(barrasH(pctMuj, {x: "pct", y: "nombre_ent", crudoKey: "fem",
   subtitulo: "% de mujeres entre los beneficiarios", fuente: "Fuente: STPS"}));
 ```
 
+## Mapa de porcentaje de mujeres por entidad (Beneficiarios, estatal, año reciente)
+
+```js
+const añoM = maxProp(padron, "año");
+const sxAll = padron.filter((d) => d.año === añoM
+  && (d.sexo === "FEMENINO" || d.sexo === "MASCULINO"));
+const femPorCve = new Map(), totPorCve = new Map();
+for (const d of sxAll) {
+  const cve = String(d.cve_ent).padStart(2, "0");
+  totPorCve.set(cve, (totPorCve.get(cve) ?? 0) + (+d.beneficiarios || 0));
+  if (d.sexo === "FEMENINO") femPorCve.set(cve, (femPorCve.get(cve) ?? 0) + (+d.beneficiarios || 0));
+}
+const valMuj = new Map([...totPorCve].map(([cve, tot]) =>
+  [cve, tot ? (femPorCve.get(cve) ?? 0) / tot * 100 : 0]));
+display(mapaEntidades(await geoEnt, valMuj, {
+  subtitulo: `% de mujeres entre los beneficiarios (${añoM})`, fuente: "Fuente: STPS",
+  nombrePorCve, formato: "pct", etiquetaValor: "% mujeres"}));
+```
+
 ## Concentracion geografica por entidad (Beneficiarios, estatal)
 
 ```js

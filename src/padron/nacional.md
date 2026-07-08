@@ -72,36 +72,21 @@ display(barras(filasU, {x: "año", y: "unicos", formato: "entero", crudoKey: "un
   subtitulo: "Personas distintas deduplicadas", fuente: "Fuente: STPS"}));
 ```
 
-## Cobertura por edad (Candidatos, nacional, 2021)
+## Cobertura por edad y sexo (Candidatos, nacional, 2021)
 
-Primer año con candidatos por edad en el padron. Se puede partir por sexo.
+Primer año con candidatos por edad en el padron. Cada edad se parte por sexo.
 
-```js
-const partirSexoCob = view(Inputs.toggle({label: "Dividir por sexo", value: false}));
-```
 ```js
 const baseCobEdad = padron.filter((d) => d.año === 2021 && d.edad !== "" && d.edad != null
-  && +d.edad >= 18 && +d.edad <= 29);
-if (!partirSexoCob) {
-  const porEdad = conTasa(agrupar(baseCobEdad, ["edad"]))
-    .filter((d) => d.tasa != null)
-    .sort((a, b) => a.edad - b.edad)
-    .map((d) => ({edad: String(d.edad), tasa: d.tasa, benef: d.beneficiarios}));
-  display(barras(porEdad, {x: "edad", y: "tasa", crudoKey: "benef",
-    titulo: "Cobertura por edad (Candidatos, nacional, 2021)",
-    subtitulo: "% de candidatos con beca por edad", fuente: "Fuente: STPS"}));
-} else {
-  const porEdadSexo = conTasa(agrupar(
-    baseCobEdad.filter((d) => d.sexo === "FEMENINO" || d.sexo === "MASCULINO"),
-    ["edad", "sexo"]))
-    .filter((d) => d.tasa != null)
-    .sort((a, b) => a.edad - b.edad)
-    .map((d) => ({edad: String(d.edad), serie: d.sexo, tasa: d.tasa, benef: d.beneficiarios}));
-  display(barrasAgrupadas(porEdadSexo, {x: "edad", serie: "serie", y: "tasa", crudoKey: "benef",
-    colorSerie: COLOR_SEXO, serieLabel: "Sexo", xLabel: "Edad",
-    titulo: "Cobertura por edad y sexo (Candidatos, nacional, 2021)",
-    subtitulo: "% de candidatos con beca por edad y sexo", fuente: "Fuente: STPS"}));
-}
+  && +d.edad >= 18 && +d.edad <= 29 && (d.sexo === "FEMENINO" || d.sexo === "MASCULINO"));
+const cobEdadSexo = conTasa(agrupar(baseCobEdad, ["edad", "sexo"]))
+  .filter((d) => d.tasa != null)
+  .sort((a, b) => a.edad - b.edad)
+  .map((d) => ({edad: String(d.edad), serie: d.sexo, tasa: d.tasa, benef: d.beneficiarios}));
+display(barrasAgrupadas(cobEdadSexo, {x: "edad", serie: "serie", y: "tasa", crudoKey: "benef",
+  colorSerie: COLOR_SEXO, serieLabel: "Sexo", xLabel: "Edad",
+  titulo: "Cobertura por edad y sexo (Candidatos, nacional, 2021)",
+  subtitulo: "% de candidatos con beca por edad y sexo", fuente: "Fuente: STPS"}));
 ```
 
 ## Perfil por sexo (Beneficiarios, nacional)

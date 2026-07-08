@@ -59,6 +59,18 @@ display(mapaEntidades(await geoEnt, valDist, {
   nombrePorCve: nombrePorEnt, formato: "pct", etiquetaValor: "% hogares"}));
 ```
 
+## Mapa de cobertura por entidad (Hogares con un integrante candidato, año reciente)
+
+```js
+const añoCob = maxProp(cob, "año");
+const valCobEnt = new Map(conNombre(cob).filter((d) => d.año === añoCob)
+  .map((d) => [d.cve2, +d.pct_con_jcf]));
+display(mapaEntidades(await geoEnt, valCobEnt, {
+  subtitulo: `% de hogares con candidato que reciben la beca (${añoCob})`,
+  fuente: "Fuente: INEGI (ENIGH)", nombrePorCve: nombrePorEnt, formato: "pct",
+  etiquetaValor: "cobertura"}));
+```
+
 ## Estado
 
 Escribe un estado para ver su detalle (deciles, composicion, programas, cajitas).
