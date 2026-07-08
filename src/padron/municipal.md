@@ -4,19 +4,19 @@
 import {agrupar, conTasa} from "../components/agregar.js";
 import {filtrarDatos} from "../components/filtros.js";
 import {barrasH, dispersion, maxProp} from "../components/graficas.js";
+import {modoDesde, sufijoFiltro, nombresUnicos} from "../components/panel.js";
 const padron = FileAttachment("../data/padron_agregado.csv").csv({typed: true});
 const cruces = FileAttachment("../data/padron_cruces.csv").csv({typed: true});
 ```
 
 ```js
-// Nombres de entidad para autocompletar.
-const nombresEnt = Array.from(new Set(padron.map((d) => d.nombre_ent)
-  .filter((n) => n != null && n !== ""))).sort((a, b) => a.localeCompare(b, "es"));
+const nombresEnt = nombresUnicos(padron, "nombre_ent");
 ```
 
 ## Filtros
 
-Por defecto se muestra la Ciudad de Mexico; cambia el estado para ver otro.
+El desglose por edad/sexo aplica a cobertura por municipio y perfil por sexo. Las
+dispersiones y el mapa no dependen del desglose.
 
 ```js
 const nombreEnt = view(Inputs.text({label: "Estado contiene", value: "",
@@ -24,16 +24,33 @@ const nombreEnt = view(Inputs.text({label: "Estado contiene", value: "",
 ```
 ```js
 // Municipios del estado elegido, para autocompletar el segundo campo.
-const nombresMun = Array.from(new Set(
-  filtrarDatos(padron, {nombreEnt}).map((d) => d.nombre_mun)
-    .filter((n) => n != null && n !== ""))).sort((a, b) => a.localeCompare(b, "es"));
+const nombresMun = nombresUnicos(filtrarDatos(padron, {nombreEnt}), "nombre_mun");
 ```
 ```js
 const nombreMun = view(Inputs.text({label: "Municipio contiene", placeholder: "todos",
   datalist: nombresMun}));
 ```
 ```js
-const padronF = filtrarDatos(padron, {nombreEnt, nombreMun});
+const modoTxt = view(Inputs.select(["Sin desglose", "Por sexo", "Por edad"], {label: "Desglose", value: "Sin desglose"}));
+```
+```js
+const modo = modoDesde(modoTxt);
+```
+```js
+const edadMin = modo === "edad" ? view(Inputs.range([18, 29], {step: 1, value: 18, label: "Edad minima"})) : 18;
+```
+```js
+const edadMax = modo === "edad" ? view(Inputs.range([18, 29], {step: 1, value: 29, label: "Edad maxima"})) : 29;
+```
+```js
+// Padron filtrado por estado/municipio y (si el desglose lo pide) por edad/sexo.
+const padronF = (() => {
+  let f = filtrarDatos(padron, {nombreEnt, nombreMun});
+  if (modo === "sexo") f = f.filter((d) => d.sexo === "FEMENINO" || d.sexo === "MASCULINO");
+  if (modo === "edad") f = f.filter((d) => d.edad !== "" && d.edad != null
+    && +d.edad >= edadMin && +d.edad <= edadMax);
+  return f;
+})();
 ```
 
 ## Cobertura por municipio (Candidatos, municipal, 2021)
@@ -54,7 +71,7 @@ const porMun = conTasa(agrupar(padronF.filter((d) => d.año === 2021), ["cve_mun
   .map((d) => ({nombre_mun: d.nombre_mun, tasa: d.tasa, benef: d.beneficiarios}));
 display(barrasH(porMun, {x: "tasa", y: "nombre_mun", crudoKey: "benef",
   titulo: "Cobertura por municipio (Candidatos, municipal, 2021)",
-  subtitulo: "% de candidatos con beca (top 25 del filtro)", fuente: "Fuente: STPS"}));
+  subtitulo: "% de candidatos con beca (top 25 del filtro)" + sufijoFiltro(modo), fuente: "Fuente: STPS"}));
 ```
 
 ## Perfil por sexo del municipio (Beneficiarios, municipal, año reciente)
@@ -86,7 +103,7 @@ const pctMuj = [...totMun.keys()].map((mun) => {
   .sort((a, b) => b.total - a.total).slice(0, 25);
 display(barrasH(pctMuj, {x: "pct", y: "nombre_mun", crudoKey: "fem",
   titulo: `Porcentaje de mujeres por municipio (Beneficiarios, municipal, ${añoS})`,
-  subtitulo: `% de mujeres entre los beneficiarios (municipios con >=${MIN_BENEF}, top 25 por tamaño)`,
+  subtitulo: `% de mujeres entre los beneficiarios (municipios con >=${MIN_BENEF}, top 25 por tamaño)` + sufijoFiltro(modo),
   fuente: "Fuente: STPS"}));
 ```
 
