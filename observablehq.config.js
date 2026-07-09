@@ -18,6 +18,9 @@ export default {
   // Estilo Social Data Ibero (reemplaza el tema por defecto).
   style: "custom-style.css",
 
+  // En GitHub Actions el sitio se sirve en /<repo>/; en local, en la raiz.
+  base: process.env.GITHUB_ACTIONS ? "/jcf-tablero/" : "/",
+
   toc: true,
   search: true,
 
