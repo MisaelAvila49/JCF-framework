@@ -10,7 +10,7 @@ import {controlPanel, resolverEstado} from "./components/controlPanel.js";
 import {filtrar} from "./components/filtro.js";
 import {render} from "./components/render.js";
 import {conTasa, agrupar} from "./components/agregar.js";
-import {dispersion, maxProp} from "./components/graficas.js";
+import {dispersion, maxProp, barrasFacetadas} from "./components/graficas.js";
 const padron = FileAttachment("./data/padron_agregado.csv").csv({typed: true});
 const cruces = FileAttachment("./data/padron_cruces.csv").csv({typed: true});
 const unicos = FileAttachment("./data/padron_unicos_geo.csv").csv({typed: true});
@@ -373,27 +373,24 @@ const margV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal
 }
 ```
 
-## Cobertura por grado de marginacion (estatal, 2021)
+## Cobertura por grado de marginacion (estatal, 2021-2025)
 
 ```js
 {
   const orden = ["Muy bajo", "Bajo", "Medio", "Alto", "Muy alto"];
-  const porGrado = new Map();
-  for (const d of cruces.filter((x) => x.año === 2021)) {
+  // Por año x grado (todos los años con candidatos, un panel por año).
+  const porAñoGrado = new Map();
+  for (const d of cruces.filter((x) => +x.candidatos > 0)) {
     const gr = d.grado_marginacion;
     if (gr == null || gr === "") continue;
-    if (!porGrado.has(gr)) porGrado.set(gr, {ben: 0, can: 0});
-    const a = porGrado.get(gr); a.ben += +d.beneficiarios || 0; a.can += +d.candidatos || 0;
+    const k = d.año + "|" + gr;
+    if (!porAñoGrado.has(k)) porAñoGrado.set(k, {año: String(d.año), grado: gr, ben: 0, can: 0});
+    const a = porAñoGrado.get(k); a.ben += +d.beneficiarios || 0; a.can += +d.candidatos || 0;
   }
-  const filas = orden.filter((g) => porGrado.has(g)).map((g) => ({clave: g,
-    valor: porGrado.get(g).can ? porGrado.get(g).ben / porGrado.get(g).can * 100 : 0,
-    crudo: porGrado.get(g).ben}));
-  display(Plot.plot({
-    title: "Cobertura por grado de marginacion (Candidatos, 2021)",
-    subtitle: "% de candidatos con beca por grado", caption: "Fuente: STPS / CONAPO",
-    marginBottom: 40, x: {label: "grado"}, y: {label: "%", grid: true, tickFormat: (d) => `${d}%`},
-    marks: [Plot.ruleY([0], {stroke: "#e2e8f0"}),
-      Plot.barY(filas, {x: "clave", y: "valor", fill: "#60a5fa", fillOpacity: 0.85}),
-      Plot.text(filas, {x: "clave", y: "valor", text: (d) => `${d.valor.toFixed(1)}%`, dy: -6, fontSize: 9})]}));
+  const filas = [...porAñoGrado.values()].filter((a) => a.can > 0)
+    .map((a) => ({año: a.año, grado: a.grado, pct: a.ben / a.can * 100, crudo: a.ben}));
+  display(barrasFacetadas(filas, {x: "grado", y: "pct", faceta: "año", dominioX: orden,
+    crudoKey: "crudo", titulo: "Cobertura por grado de marginacion (Candidatos)",
+    subtitulo: "% de candidatos con beca por grado, un panel por año", fuente: "Fuente: STPS / CONAPO"}));
 }
 ```
