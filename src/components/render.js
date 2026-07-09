@@ -114,15 +114,16 @@ export function render(config, filas, contexto) {
     h.style.cssText = "font-weight:700;font-size:1.15rem;border-bottom:2px solid #E30A18;padding-bottom:.3rem;";
     cont.appendChild(h);
   }
-  if (mapas.length) cont.appendChild(fila(mapas, 360));
-  if (rankings.length) cont.appendChild(fila(rankings, 300));
+  if (mapas.length) cont.appendChild(fila(mapas));
+  if (rankings.length) cont.appendChild(fila(rankings));
   return cont;
 }
 
-// Envuelve nodos en un grid horizontal responsivo (subplots lado a lado).
-function fila(nodos, minPx) {
+// Envuelve nodos en un grid de 2 columnas fijas (2 subplots por fila, para que
+// no se pierdan los porcentajes al comprimir muchos años en una sola fila).
+function fila(nodos) {
   const f = document.createElement("div");
-  f.style.cssText = `display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(${minPx}px,1fr));align-items:start;`;
+  f.style.cssText = "display:grid;gap:1.25rem 1.5rem;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;";
   for (const n of nodos) { n.style.maxWidth = "100%"; f.appendChild(n); }
   return f;
 }
@@ -150,5 +151,5 @@ function mapaContexto(config, contexto, estado, modo) {
         etiquetaValor: config.etiquetaValor ?? "valor", resaltarCve: estado.cveMun}));
     }
   }
-  return fila(mapas, 320);
+  return fila(mapas);
 }
