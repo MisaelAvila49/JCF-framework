@@ -317,12 +317,17 @@ const pobV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"
 ```js
 {
   const est = resolverEstado(pobV, {catEnt, catMun});
-  const {filas} = filtrar(cruces, est);
   const esMun = est.nivel === "municipal";
+  // La dispersion mantiene TODOS los puntos; elegir un estado/municipio solo lo
+  // resalta (no filtra). En municipal, elegir estado acota a sus municipios;
+  // elegir municipio solo resalta.
+  const base = esMun && est.cveEnt
+    ? cruces.filter((d) => String(d.cve_ent).padStart(2, "0") === est.cveEnt)
+    : cruces;
   const nombreSel = esMun ? (est.cveMun && nombreMunPorCve.get(est.cveMun))
     : (est.cveEnt && nombreEntPorCve.get(est.cveEnt));
   const g = new Map();
-  for (const d of filas.filter((x) => +x.candidatos > 0 && x.pct_pobreza !== "" && x.pct_pobreza != null)) {
+  for (const d of base.filter((x) => +x.candidatos > 0 && x.pct_pobreza !== "" && x.pct_pobreza != null)) {
     const cve = esMun ? String(d.cve_mun).padStart(5, "0") : String(d.cve_ent).padStart(2, "0");
     const k = d.año + "|" + cve;
     if (!g.has(k)) g.set(k, {año: String(d.año), ben: 0, can: 0, pob: d.pct_pobreza, nombre: esMun ? d.nombre_mun : d.nombre_ent});
@@ -346,12 +351,14 @@ const margV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal
 ```js
 {
   const est = resolverEstado(margV, {catEnt, catMun});
-  const {filas} = filtrar(cruces, est);
   const esMun = est.nivel === "municipal";
+  const base = esMun && est.cveEnt
+    ? cruces.filter((d) => String(d.cve_ent).padStart(2, "0") === est.cveEnt)
+    : cruces;
   const nombreSel = esMun ? (est.cveMun && nombreMunPorCve.get(est.cveMun))
     : (est.cveEnt && nombreEntPorCve.get(est.cveEnt));
   const g = new Map();
-  for (const d of filas.filter((x) => +x.candidatos > 0 && x.indice_marginacion !== "" && x.indice_marginacion != null)) {
+  for (const d of base.filter((x) => +x.candidatos > 0 && x.indice_marginacion !== "" && x.indice_marginacion != null)) {
     const cve = esMun ? String(d.cve_mun).padStart(5, "0") : String(d.cve_ent).padStart(2, "0");
     const k = d.año + "|" + cve;
     if (!g.has(k)) g.set(k, {año: String(d.año), ben: 0, can: 0, mar: d.indice_marginacion, nombre: esMun ? d.nombre_mun : d.nombre_ent});
