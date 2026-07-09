@@ -2,7 +2,8 @@
 // Decide la forma visual de una grafica segun el modo del motor de filtros.
 // Modos de una unidad -> barras/serie. Modos de comparacion -> mapa (si
 // mapeable) + ranking horizontal. Unica fuente de la decision visual.
-import {barras, barrasH, barrasApiladas, barrasFacetadas, dispersion} from "./graficas.js";
+import {barras, barrasH, barrasApiladas, barrasFacetadas, barrasAgrupadas,
+  dispersion, COLOR_SEXO, ESCALA_EDAD} from "./graficas.js";
 import {mapaEntidades, mapaMunicipios} from "./mapa.js";
 
 // config: {metrica, agrupaGeo, mapeable, unidad, tipo, facetaAño, serie, dominioX,
@@ -18,9 +19,12 @@ export function render(config, filas, contexto) {
   const comparacion = modo === "compara-estados" || modo === "compara-municipios"
     || modo === "municipios-estado";
   const tipo = config.tipo ?? "serie";
-  const desagreg = estado.sexo !== "Todos" || estado.edadMin != null;
+  const sexoAct = estado.sexo && estado.sexo !== "Todos";
+  const edadAct = estado.edadMin != null;
+  const desagreg = sexoAct || edadAct;
+  // Faceta por año SOLO cuando el eje x no es el año (tipo distinto de serie).
   const factea = config.facetaAño === true
-    || (config.facetaAño === "auto" && (tipo !== "serie" || desagreg));
+    || (config.facetaAño !== false && tipo !== "serie");
   if (!comparacion) {
     const datos = config.metrica(filas, estado);
     if (tipo === "dispersion") {
@@ -33,6 +37,15 @@ export function render(config, filas, contexto) {
         valor: "valor", faceta: factea ? "año" : null, dominioX: config.dominioX,
         crudoKey: "crudo", titulo: config.titulo, subtitulo: config.subtitulo,
         fuente: config.fuente});
+    }
+    // Serie con desglose sexo/edad: barras agrupadas por año, una barra por serie.
+    if (tipo === "serie" && desagreg && config.serieDesglose) {
+      return barrasAgrupadas(datos, {x: "año", serie: "serie", y: "valor",
+        formato: config.unidad ?? "pct", crudoKey: "crudo",
+        colorSerie: sexoAct ? COLOR_SEXO : null,
+        escalaColor: edadAct ? ESCALA_EDAD : null,
+        serieLabel: sexoAct ? "Sexo" : "Edad", xLabel: "año",
+        titulo: config.titulo, subtitulo: config.subtitulo, fuente: config.fuente});
     }
     if (factea) {
       return barrasFacetadas(datos, {x: "clave", y: "valor", faceta: "año",
@@ -53,11 +66,12 @@ export function render(config, filas, contexto) {
     if (modo === "compara-estados") {
       out.push(mapaEntidades(contexto.geoEnt, valores, {subtitulo: config.subtitulo,
         fuente: config.fuente, nombrePorCve: contexto.nombrePorCve,
-        formato: config.unidad ?? "pct", etiquetaValor: config.etiquetaValor ?? "valor"}));
+        formato: config.unidad ?? "pct", etiquetaValor: config.etiquetaValor ?? "valor",
+        resaltarCve: estado.cveEnt ?? null, tooltipExtra: config.tooltipExtra}));
     } else if (modo === "municipios-estado" && contexto.geoMun) {
       out.push(mapaMunicipios(contexto.geoMun, valores, {subtitulo: config.subtitulo,
         fuente: config.fuente, formato: config.unidad ?? "pct",
-        etiquetaValor: config.etiquetaValor ?? "valor"}));
+        etiquetaValor: config.etiquetaValor ?? "valor", resaltarCve: estado.cveMun ?? null}));
     }
   }
   out.push(barrasH(ranking.map((d) => ({nombre: d.nombre, valor: d.valor, crudo: d.crudo})),
