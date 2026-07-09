@@ -178,13 +178,14 @@ export function lineas(datos, {x, y, serie = null, titulo = "", subtitulo = "",
 // Dispersion (un punto por municipio/entidad). etiquetaKey: nombre para el tip.
 export function dispersion(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
     etiquetaKey = null, rKey = null, resaltarNombre = null, faceta = null} = {}) {
+  const canales = {
+    ...(etiquetaKey ? {[etiquetaKey]: (d) => d[etiquetaKey]} : {}),
+    ...(rKey ? {"Universo": (d) => compacto(d[rKey])} : {}),
+  };
   const base = {x, y, fillOpacity: 0.5, fill: "#ea580c",
     ...(rKey ? {r: rKey} : {r: 3}),
-    channels: {
-      ...(etiquetaKey ? {[etiquetaKey]: (d) => d[etiquetaKey]} : {}),
-      ...(rKey ? {"Universo": (d) => compacto(d[rKey])} : {}),
-    },
-    tip: true};
+    channels: canales,
+    tip: {channels: canales, format: {x: true, y: true, r: false, fx: false, fill: false, stroke: false, fillOpacity: false}}};
   if (faceta) base.fx = faceta;
   const marks = [Plot.ruleY([0], {stroke: "#e2e8f0"})];
   if (resaltarNombre && etiquetaKey) {

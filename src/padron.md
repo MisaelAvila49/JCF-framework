@@ -133,14 +133,21 @@ const sexoV = view(controlPanel({catEnt, catMun}));
   const {filas, modo} = filtrar(padron, {...est, sexo: "Todos"});
   const cfg = {
     unidad: "pct", mapeable: true, tipo: "serie", facetaAño: false, etiquetaValor: "% mujeres",
-    titulo: "Perfil por sexo", subtitulo: "% de mujeres entre los beneficiarios",
+    titulo: "Perfil por sexo", subtitulo: "% de mujeres entre los beneficiarios por año",
     fuente: "Fuente: STPS",
     metrica: (f) => {
+      // % de mujeres por año (año en el eje, todos los años).
       const cs = f.filter((d) => d.sexo === "FEMENINO" || d.sexo === "MASCULINO");
-      const tot = cs.reduce((s, d) => s + (+d.beneficiarios || 0), 0);
-      const m = new Map();
-      for (const d of cs) m.set(d.sexo, (m.get(d.sexo) ?? 0) + (+d.beneficiarios || 0));
-      return [...m].map(([sexo, v]) => ({clave: sexo, valor: tot ? v / tot * 100 : 0, crudo: v}));
+      const porAño = new Map();
+      for (const d of cs) {
+        if (!porAño.has(d.año)) porAño.set(d.año, {fem: 0, tot: 0});
+        const a = porAño.get(d.año);
+        a.tot += +d.beneficiarios || 0;
+        if (d.sexo === "FEMENINO") a.fem += +d.beneficiarios || 0;
+      }
+      return [...porAño].filter(([, a]) => a.tot > 0)
+        .map(([año, a]) => ({clave: String(año), año: String(año), valor: a.fem / a.tot * 100, crudo: a.fem}))
+        .sort((x, y) => +x.clave - +y.clave);
     },
     agrupaGeo: (f, e) => geoBloque(f.filter((d) => d.sexo === "FEMENINO" || d.sexo === "MASCULINO"), e,
       {num: (d) => d.sexo === "FEMENINO" ? (+d.beneficiarios || 0) : 0,
@@ -164,18 +171,22 @@ const edadV = view(controlPanel({catEnt, catMun}));
   // panel (si no, un rango daria una distribucion recortada artificialmente).
   const {filas, modo} = filtrar(padron, {...est, edadMin: null, edadMax: null});
   const cfg = {
-    unidad: "pct", mapeable: false, tipo: "distribucion", facetaAño: false,
-    titulo: "Distribucion por edad", subtitulo: "% de beneficiarios por edad (año reciente)",
+    unidad: "pct", mapeable: false, tipo: "distribucion", facetaAño: true,
+    titulo: "Distribucion por edad", subtitulo: "% de beneficiarios por edad, un panel por año",
     fuente: "Fuente: STPS",
     metrica: (f) => {
+      // Por año x edad; % dentro de cada año (todos los años, facetados).
       const conEdad = f.filter((d) => d.edad !== "" && d.edad != null && +d.edad <= 32);
-      const añoMax = Math.max(2021, maxProp(conEdad, "año"));
-      const g = conEdad.filter((d) => d.año === añoMax);
-      const tot = g.reduce((s, d) => s + (+d.beneficiarios || 0), 0);
+      const totAño = new Map();
+      for (const d of conEdad) totAño.set(d.año, (totAño.get(d.año) ?? 0) + (+d.beneficiarios || 0));
       const m = new Map();
-      for (const d of g) m.set(+d.edad, (m.get(+d.edad) ?? 0) + (+d.beneficiarios || 0));
-      return [...m].map(([edad, v]) => ({clave: String(edad), valor: tot ? v / tot * 100 : 0, crudo: v}))
-        .sort((a, b) => +a.clave - +b.clave);
+      for (const d of conEdad) {
+        const k = d.año + "|" + d.edad;
+        m.set(k, (m.get(k) ?? 0) + (+d.beneficiarios || 0));
+      }
+      return [...m].map(([k, v]) => { const [a, e] = k.split("|");
+        return {clave: String(e), año: String(a), valor: totAño.get(+a) ? v / totAño.get(+a) * 100 : 0, crudo: v}; })
+        .sort((x, y) => +x.clave - +y.clave);
     },
     agrupaGeo: () => [],
   };

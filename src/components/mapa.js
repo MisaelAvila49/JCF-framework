@@ -5,6 +5,29 @@
 import * as Plot from "npm:@observablehq/plot";
 import {compacto} from "./graficas.js";
 
+// Construye las marcas del mapa: una capa (o dos si hay resaltado, con estilos
+// CONSTANTES para que stroke/opacity no aparezcan como canales en el tooltip).
+// El tooltip solo muestra los canales de datos (nombre, valor, extra).
+function geoMarks(feats, resaltarCve, {etiquetaValor, formato, tooltipExtra, nombreKey}) {
+  const canales = {
+    [nombreKey]: (d) => d.properties.nombre,
+    [etiquetaValor]: (d) => d.properties.valor == null ? "sin dato"
+      : (formato === "pct" ? `${(+d.properties.valor).toFixed(1)}%` : compacto(d.properties.valor)),
+    ...(tooltipExtra ? {[tooltipExtra.label]: (d) => tooltipExtra.map.get(d.properties.cve) ?? "sin dato"} : {}),
+  };
+  const tip = {channels: canales, format: {fill: false, stroke: false, fillOpacity: false, strokeWidth: false}};
+  const base = {fill: (d) => d.properties.valor, channels: canales};
+  if (!resaltarCve) {
+    return [Plot.geo(feats, {...base, stroke: "#fff", strokeWidth: 0.5, tip})];
+  }
+  const otros = feats.filter((f) => f.properties.cve !== resaltarCve);
+  const sel = feats.filter((f) => f.properties.cve === resaltarCve);
+  return [
+    Plot.geo(otros, {...base, stroke: "#fff", strokeWidth: 0.5, fillOpacity: 0.4, tip}),
+    Plot.geo(sel, {...base, stroke: "#1D1D1B", strokeWidth: 2.5, fillOpacity: 1, tip}),
+  ];
+}
+
 // ISO (properties.id del geojson) -> cve_ent INEGI de dos digitos.
 export const ISO_A_CVE = {
   "MX-AGU": "01", "MX-BCN": "02", "MX-BCS": "03", "MX-CAM": "04",
@@ -43,29 +66,15 @@ export function mapaEntidades(geo, valores, {titulo = "", subtitulo = "",
     height: 460,
     color: {
       range: REDS,
-      type: "linear",
+      type: "quantize",
+      n: 6,
       ...(formato === "pct" ? {domain: [0, 100]} : {}),
       legend: true,
-      label: etiquetaValor,
+      label: etiquetaValor + (formato === "pct" ? " (0-100%)" : ""),
       unknown: "#eee",
-      ticks: formato === "pct" ? [0, 20, 40, 60, 80, 100] : undefined,
       tickFormat: (d) => formato === "pct" ? `${(+d).toFixed(0)}%` : compacto(d),
     },
-    marks: [
-      Plot.geo(feats, {
-        fill: (d) => d.properties.valor,
-        stroke: (d) => resaltarCve && d.properties.cve === resaltarCve ? "#1D1D1B" : "#fff",
-        strokeWidth: (d) => resaltarCve && d.properties.cve === resaltarCve ? 2.5 : 0.5,
-        fillOpacity: (d) => resaltarCve && d.properties.cve !== resaltarCve ? 0.4 : 1,
-        channels: {
-          Entidad: (d) => d.properties.nombre,
-          [etiquetaValor]: (d) => d.properties.valor == null ? "sin dato"
-            : (formato === "pct" ? `${(+d.properties.valor).toFixed(1)}%` : compacto(d.properties.valor)),
-          ...(tooltipExtra ? {[tooltipExtra.label]: (d) => tooltipExtra.map.get(d.properties.cve) ?? "sin dato"} : {}),
-        },
-        tip: true,
-      }),
-    ],
+    marks: geoMarks(feats, resaltarCve, {etiquetaValor, formato, tooltipExtra, nombreKey: "Entidad"}),
   });
 }
 
@@ -87,22 +96,11 @@ export function mapaMunicipios(geo, valores, {titulo = "", subtitulo = "",
     width: 720,
     height: 480,
     color: {
-      range: REDS, type: "linear",
+      range: REDS, type: "quantize", n: 6,
       ...(formato === "pct" ? {domain: [0, 100]} : {}),
-      legend: true, label: etiquetaValor, unknown: "#eee",
-      ticks: formato === "pct" ? [0, 20, 40, 60, 80, 100] : undefined,
+      legend: true, label: etiquetaValor + (formato === "pct" ? " (0-100%)" : ""), unknown: "#eee",
       tickFormat: (d) => formato === "pct" ? `${(+d).toFixed(0)}%` : compacto(d),
     },
-    marks: [
-      Plot.geo(feats, {fill: (d) => d.properties.valor,
-        stroke: (d) => resaltarCve && d.properties.cve === resaltarCve ? "#1D1D1B" : "#fff",
-        strokeWidth: (d) => resaltarCve && d.properties.cve === resaltarCve ? 2 : 0.4,
-        fillOpacity: (d) => resaltarCve && d.properties.cve !== resaltarCve ? 0.4 : 1,
-        channels: {
-          Municipio: (d) => d.properties.nombre,
-          [etiquetaValor]: (d) => d.properties.valor == null ? "sin dato"
-            : (formato === "pct" ? `${(+d.properties.valor).toFixed(1)}%` : compacto(d.properties.valor)),
-        }, tip: true}),
-    ],
+    marks: geoMarks(feats, resaltarCve, {etiquetaValor, formato, tooltipExtra: null, nombreKey: "Municipio"}),
   });
 }
