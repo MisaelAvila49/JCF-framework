@@ -41,5 +41,8 @@ export function render(config, filas, contexto) {
     {x: "valor", y: "nombre", formato: config.unidad ?? "pct", crudoKey: "crudo",
      titulo: config.titulo, subtitulo: (config.subtitulo ?? "") + " (ranking)",
      fuente: config.fuente}));
-  return out;
+  // Envolver en un contenedor para que display() renderice todo junto.
+  const cont = document.createElement("div");
+  for (const nodo of out) cont.appendChild(nodo);
+  return cont;
 }

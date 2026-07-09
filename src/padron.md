@@ -32,7 +32,7 @@ const nombrePorCve = new Map(catEnt.map((e) => [e.cve, e.nombre]));
 ## Cobertura
 
 ```js
-const cobV = view(controlPanel({nombresEnt, nombresMun}));
+const cobV = view(controlPanel({catEnt, catMun}));
 ```
 
 ```js
@@ -59,14 +59,14 @@ const cobConfig = {
         valor: d.tasa, crudo: d.beneficiarios}));
   },
 };
-const cobCtx = {modo: cobRes.modo, estado: cobEstado, geoEnt, nombrePorCve};
+const cobCtx = {modo: cobRes.modo, estado: cobEstado, geoEnt: await geoEnt, nombrePorCve};
 display(render(cobConfig, cobRes.filas, cobCtx));
 ```
 
 ## Perfil por sexo
 
 ```js
-const sexoV = view(controlPanel({nombresEnt, nombresMun}));
+const sexoV = view(controlPanel({catEnt, catMun}));
 ```
 
 ```js
