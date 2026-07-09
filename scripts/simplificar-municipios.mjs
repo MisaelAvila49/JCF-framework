@@ -12,10 +12,11 @@ const archivos = readdirSync(DIR).filter((f) => f.endsWith(".json"));
 for (const f of archivos) {
   const ruta = path.join(DIR, f);
   const antes = statSync(ruta).size;
-  // -simplify conserva la forma; precision redondea coordenadas; se sobreescribe.
+  // -simplify conserva la forma; precision redondea; gj2008 preserva la
+  // orientacion de los anillos (RFC7946 la invierte y rompe Plot.geo).
   execFileSync("npx", ["-y", "mapshaper", ruta,
     "-simplify", "5%", "keep-shapes",
-    "-o", "force", "precision=0.0001", "format=geojson", ruta],
+    "-o", "force", "precision=0.0001", "gj2008", ruta],
     {stdio: "inherit", shell: true});
   const despues = statSync(ruta).size;
   console.log(f, (antes / 1024 / 1024).toFixed(1) + "MB ->", (despues / 1024 / 1024).toFixed(2) + "MB");
