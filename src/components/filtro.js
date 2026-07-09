@@ -13,10 +13,10 @@ export function modoDe(estado) {
   return "municipio";
 }
 
-// True si en este modo aplica desagregacion por sexo/edad.
+// El desglose por sexo/edad se aplica siempre que este activo, tambien en los
+// modos de comparacion (para recalcular el mapa/ranking por ese sexo/edad).
 export function desagregable(estado) {
-  const m = modoDe(estado);
-  return m === "nacional" || m === "estado" || m === "municipio";
+  return true;
 }
 
 // Filtra sexo/edad cuando aplica. Excluye sexo "SD". edadMin/edadMax en rango.
