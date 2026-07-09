@@ -34,7 +34,7 @@ function aplicar(datos, est) {
   return f;
 }
 function etiq(est) {
-  return est.nivel === "estatal" && est.cveEnt ? " — " + (nombrePorCve.get(est.cveEnt) ?? "") : " — Nacional";
+  return est.nivel === "estatal" && est.cveEnt ? " - " + (nombrePorCve.get(est.cveEnt) ?? "") : " - Nacional";
 }
 ```
 

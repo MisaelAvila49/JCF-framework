@@ -42,7 +42,7 @@ function pick(est, nac, estatal) {
   return nac;
 }
 function etiqueta(est) {
-  return est.nivel === "estatal" && est.cveEnt ? " — " + (nombrePorCve.get(est.cveEnt) ?? "") : " — Nacional";
+  return est.nivel === "estatal" && est.cveEnt ? " - " + (nombrePorCve.get(est.cveEnt) ?? "") : " - Nacional";
 }
 ```
 
