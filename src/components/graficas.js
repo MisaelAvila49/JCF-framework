@@ -9,6 +9,14 @@ export const PALETA = ["#f59e0b", "#60a5fa", "#a78bfa", "#ea580c", "#34d399", "#
 // Colores fijos por sexo: Femenino naranja, Masculino azul.
 export const COLOR_SEXO = {FEMENINO: "#f59e0b", MASCULINO: "#60a5fa"};
 
+// Escala secuencial ordinal para los años (claro -> oscuro). Mismo mapeo en todo
+// el dashboard. Cubre 2019-2025.
+export const PALETA_AÑOS = ["#cfe0f3", "#9dc3e6", "#6aa6da", "#4C72B0", "#3a5a8c", "#2a4468", "#1b2e47"];
+export const COLOR_AÑO = {
+  "2019": PALETA_AÑOS[0], "2020": PALETA_AÑOS[1], "2021": PALETA_AÑOS[2],
+  "2022": PALETA_AÑOS[3], "2023": PALETA_AÑOS[4], "2024": PALETA_AÑOS[5], "2025": PALETA_AÑOS[6],
+};
+
 // Escala de color para el desglose por edad: secuencial de oscuro (18) a claro
 // (29), dominio fijo para que el color de cada edad sea estable entre graficas.
 export const ESCALA_EDAD = {type: "linear", domain: [18, 29], scheme: "blues",
@@ -168,20 +176,34 @@ export function lineas(datos, {x, y, serie = null, titulo = "", subtitulo = "",
 }
 
 // Dispersion (un punto por municipio/entidad). etiquetaKey: nombre para el tip.
-export function dispersion(datos, {x, y, titulo = "", subtitulo = "",
-                                   fuente = "", etiquetaKey = null} = {}) {
+export function dispersion(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
+    etiquetaKey = null, rKey = null, resaltarNombre = null, faceta = null} = {}) {
+  const base = {x, y, fillOpacity: 0.5, fill: "#ea580c",
+    ...(rKey ? {r: rKey} : {r: 3}),
+    channels: {
+      ...(etiquetaKey ? {[etiquetaKey]: (d) => d[etiquetaKey]} : {}),
+      ...(rKey ? {"Universo": (d) => compacto(d[rKey])} : {}),
+    },
+    tip: true};
+  if (faceta) base.fx = faceta;
+  const marks = [Plot.ruleY([0], {stroke: "#e2e8f0"})];
+  if (resaltarNombre && etiquetaKey) {
+    marks.push(Plot.dot(datos.filter((d) => d[etiquetaKey] !== resaltarNombre),
+      {...base, fill: "#cbd5e1", fillOpacity: 0.35, stroke: null}));
+    marks.push(Plot.dot(datos.filter((d) => d[etiquetaKey] === resaltarNombre),
+      {...base, fill: "#ea580c", fillOpacity: 0.9, stroke: "#1D1D1B", strokeWidth: 1.5}));
+  } else {
+    marks.push(Plot.dot(datos, base));
+  }
   return Plot.plot({
     title: titulo,
     subtitle: subtitulo,
     caption: fuente,
+    ...(rKey ? {r: {range: [2, 14]}} : {}),
+    ...(faceta ? {fx: {label: faceta}} : {}),
     x: {label: x, grid: true},
     y: {label: y, grid: true, tickFormat: (d) => `${d}%`},
-    marks: [
-      Plot.ruleY([0], {stroke: "#e2e8f0"}),
-      Plot.dot(datos, {x, y, r: 3, fillOpacity: 0.5, fill: "#ea580c",
-        channels: etiquetaKey ? {[etiquetaKey]: (d) => d[etiquetaKey]} : {},
-        tip: true}),
-    ],
+    marks,
   });
 }
 
