@@ -97,7 +97,7 @@ const v3 = view(controlPanel({catEnt, niveles: ["Nacional", "Estatal"], desagreg
   const filas = [...m].map(([k, v]) => { const [a, dc] = k.split("|");
     return {año: a, decil: String(dc), per: v, pct: totAño.get(+a) ? v / totAño.get(+a) * 100 : 0}; })
     .sort((x, y) => +x.decil - +y.decil);
-  display(filas.length ? barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "per",
+  display(filas.length ? barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "per", dominioX: deciles,
     titulo: "Personas con la beca por decil" + etiq(est), subtitulo: "% por decil, un panel por año",
     fuente: "Fuente: INEGI (ENIGH)"}) : html`<p>Sin datos para la seleccion.</p>`);
 }
@@ -114,7 +114,7 @@ const v3 = view(controlPanel({catEnt, niveles: ["Nacional", "Estatal"], desagreg
   const filas = [...m].map(([k, v]) => { const [a, dc] = k.split("|");
     return {año: a, decil: String(dc), per: v, pct: totAño.get(+a) ? v / totAño.get(+a) * 100 : 0}; })
     .sort((x, y) => +x.decil - +y.decil);
-  display(barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "per",
+  display(barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "per", dominioX: deciles,
     titulo: "Personas candidatas por decil (nacional)", subtitulo: "% por decil, un panel por año",
     fuente: "Fuente: INEGI (ENIGH)"}));
 }
@@ -204,7 +204,7 @@ Ratio beca / ingreso del hogar de la persona con beca, en cajas de 10.
     const bn = becaDec.get(k) ?? 0;
     return {año: a, decil: String(dc), per: bn, pct: cn ? bn / cn * 100 : 0}; })
     .sort((x, y) => +x.decil - +y.decil);
-  display(barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "per",
+  display(barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "per", dominioX: deciles,
     titulo: "Cobertura por decil (personas)", subtitulo: "% de candidatas con beca por decil, un panel por año",
     fuente: "Fuente: INEGI (ENIGH)"}));
 }

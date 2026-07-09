@@ -84,7 +84,7 @@ const v2 = view(controlPanel({catEnt, niveles: ["Nacional", "Estatal"], desagreg
   const d = pick(est, decN, decE);
   const filas = d.map((x) => ({año: String(x.año), decil: String(x.decil), pct: (+x.tasa_decil) * 100, hog: x.con_jcf}))
     .sort((a, b) => +a.decil - +b.decil);
-  display(barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "hog",
+  display(barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "hog", dominioX: deciles,
     titulo: "Cobertura por decil" + etiqueta(est), subtitulo: "% de candidatos con beca por decil, un panel por año",
     fuente: "Fuente: INEGI (ENIGH)"}));
 }
@@ -101,7 +101,7 @@ const v3 = view(controlPanel({catEnt, niveles: ["Nacional", "Estatal"], desagreg
   const d = pick(est, decN, decE);
   const filas = d.map((x) => ({año: String(x.año), decil: String(x.decil), pct: (+x.reparto_jcf) * 100, hog: x.con_jcf}))
     .sort((a, b) => +a.decil - +b.decil);
-  display(barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "hog",
+  display(barrasFacetadas(filas, {x: "decil", y: "pct", faceta: "año", crudoKey: "hog", dominioX: deciles,
     titulo: "Reparto de la beca por decil" + etiqueta(est), subtitulo: "% de los hogares con beca en cada decil, un panel por año",
     fuente: "Fuente: INEGI (ENIGH)"}));
 }

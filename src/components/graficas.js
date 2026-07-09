@@ -254,15 +254,17 @@ export function barrasH(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
 }
 
 // Barras facetadas: un mini-panel por valor de `faceta` (ej. año), lado a lado.
+// dominioX (opcional): orden explicito del eje x (ej. deciles 1..10, evita el
+// orden lexicografico 1,10,2,3).
 export function barrasFacetadas(datos, {x, y, faceta, titulo = "", subtitulo = "",
-    fuente = "", formato = "pct", crudoKey = null} = {}) {
+    fuente = "", formato = "pct", crudoKey = null, dominioX = null} = {}) {
   return Plot.plot({
     title: titulo,
     subtitle: subtitulo,
     caption: fuente,
     marginBottom: 40,
     fx: {label: faceta},
-    x: {label: x, tickRotate: 0},
+    x: {label: x, tickRotate: 0, ...(dominioX ? {domain: dominioX} : {})},
     y: ejeValor(formato, y),
     marks: [
       Plot.ruleY([0], {stroke: "#e2e8f0"}),
