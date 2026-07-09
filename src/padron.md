@@ -17,6 +17,36 @@ const geoEnt = FileAttachment("./data/mx_entidades.json").json();
 ```
 
 ```js
+// Catalogo estatico de geojson municipal por cve_ent (carga perezosa: Observable
+// solo descarga el del estado que se lee).
+const GEO_MUN = {
+  "01": FileAttachment("./data/municipios/01.json"), "02": FileAttachment("./data/municipios/02.json"),
+  "03": FileAttachment("./data/municipios/03.json"), "04": FileAttachment("./data/municipios/04.json"),
+  "05": FileAttachment("./data/municipios/05.json"), "06": FileAttachment("./data/municipios/06.json"),
+  "07": FileAttachment("./data/municipios/07.json"), "08": FileAttachment("./data/municipios/08.json"),
+  "09": FileAttachment("./data/municipios/09.json"), "10": FileAttachment("./data/municipios/10.json"),
+  "11": FileAttachment("./data/municipios/11.json"), "12": FileAttachment("./data/municipios/12.json"),
+  "13": FileAttachment("./data/municipios/13.json"), "14": FileAttachment("./data/municipios/14.json"),
+  "15": FileAttachment("./data/municipios/15.json"), "16": FileAttachment("./data/municipios/16.json"),
+  "17": FileAttachment("./data/municipios/17.json"), "18": FileAttachment("./data/municipios/18.json"),
+  "19": FileAttachment("./data/municipios/19.json"), "20": FileAttachment("./data/municipios/20.json"),
+  "21": FileAttachment("./data/municipios/21.json"), "22": FileAttachment("./data/municipios/22.json"),
+  "23": FileAttachment("./data/municipios/23.json"), "24": FileAttachment("./data/municipios/24.json"),
+  "25": FileAttachment("./data/municipios/25.json"), "26": FileAttachment("./data/municipios/26.json"),
+  "27": FileAttachment("./data/municipios/27.json"), "28": FileAttachment("./data/municipios/28.json"),
+  "29": FileAttachment("./data/municipios/29.json"), "30": FileAttachment("./data/municipios/30.json"),
+  "31": FileAttachment("./data/municipios/31.json"), "32": FileAttachment("./data/municipios/32.json"),
+};
+// Carga el geojson municipal del estado (o null) para el modo municipios-estado.
+async function geoMunDe(estado) {
+  if (estado.nivel === "municipal" && estado.cveEnt && GEO_MUN[estado.cveEnt]) {
+    return await GEO_MUN[estado.cveEnt].json();
+  }
+  return null;
+}
+```
+
+```js
 // Catalogos nombre->cve (unicos).
 const catEnt = Array.from(new Map(cruces.map((d) =>
   [String(d.cve_ent).padStart(2, "0"), d.nombre_ent])).entries())
@@ -59,7 +89,8 @@ const cobConfig = {
         valor: d.tasa, crudo: d.beneficiarios}));
   },
 };
-const cobCtx = {modo: cobRes.modo, estado: cobEstado, geoEnt: await geoEnt, nombrePorCve};
+const cobCtx = {modo: cobRes.modo, estado: cobEstado, geoEnt: await geoEnt,
+  geoMun: await geoMunDe(cobEstado), nombrePorCve};
 display(render(cobConfig, cobRes.filas, cobCtx));
 ```
 
