@@ -317,7 +317,7 @@ display(
 )
 ```
 
-## Desglose dentro de programas sociales y becas
+## Desglose dentro de programas sociales y becas: hogares con beca jcf
 
 ```js
 display(
@@ -336,7 +336,7 @@ display(
 )
 ```
 
-## Desglose de programas por decil
+## Desglose de programas por decil: hogares con beca jcf
 
 ```js
 display(

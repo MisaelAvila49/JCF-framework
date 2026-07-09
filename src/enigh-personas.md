@@ -308,7 +308,7 @@ display(
 )
 ```
 
-## Desglose dentro de programas (nacional)
+## Desglose dentro de programas (nacional): con beca jcf
 
 ```js
 display(
@@ -327,7 +327,7 @@ display(
 )
 ```
 
-## Desglose de programas por decil (nacional)
+## Desglose de programas por decil (nacional): con beca jcf
 
 ```js
 display(
