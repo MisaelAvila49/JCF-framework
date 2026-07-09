@@ -14,15 +14,6 @@ toc: false
       <a class="book-cta" href="./enigh-hogares">Análisis ENIGH →</a>
     </div>
   </div>
-  <div class="book-cover">
-    <div class="book-cover-inner">
-      <div class="book-cover-accent"><span class="book-cover-accent-shimmer"></span></div>
-      <span class="book-cover-eyebrow">Tablero</span>
-      <div class="book-cover-title">Jóvenes<br>Construyendo<br>el Futuro</div>
-      <div class="book-cover-subtitle">Cobertura · perfil · ingresos</div>
-      <div class="book-cover-year">2019 — 2025</div>
-    </div>
-  </div>
 </div>
 
 <div class="book-meta-grid">
