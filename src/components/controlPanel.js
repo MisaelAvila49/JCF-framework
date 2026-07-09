@@ -12,15 +12,18 @@ function norm(t) {
 
 // catEnt/catMun: [{cve, nombre}]. municipiosDe(nombreEnt) opcional: devuelve los
 // nombres de municipio del estado escrito; si no se pasa, usa todos los de catMun.
-export function controlPanel({catEnt = [], catMun = []} = {}) {
+// niveles: opciones del select de nivel (ENIGH usa ["Nacional","Estatal"]).
+// desagrega: si false, no crea sexo/edad (ENIGH Hogares).
+export function controlPanel({catEnt = [], catMun = [],
+    niveles = ["Nacional", "Estatal", "Municipal"], desagrega = true} = {}) {
   const nombresEnt = catEnt.map((e) => e.nombre).sort((a, b) => a.localeCompare(b, "es"));
 
-  const nivel = Inputs.select(["Nacional", "Estatal", "Municipal"], {label: "Nivel", value: "Nacional"});
+  const nivel = Inputs.select(niveles, {label: "Nivel", value: niveles[0]});
   const estado = Inputs.text({label: "Estado", placeholder: "(todos)", datalist: nombresEnt});
   const municipio = Inputs.text({label: "Municipio", placeholder: "(todos)"});
-  const sexo = Inputs.select(["Todos", "FEMENINO", "MASCULINO"], {label: "Sexo", value: "Todos"});
-  const edadMin = Inputs.range([18, 29], {step: 1, value: 18, label: "Edad min"});
-  const edadMax = Inputs.range([18, 29], {step: 1, value: 29, label: "Edad max"});
+  const sexo = desagrega ? Inputs.select(["Todos", "FEMENINO", "MASCULINO"], {label: "Sexo", value: "Todos"}) : null;
+  const edadMin = desagrega ? Inputs.range([18, 29], {step: 1, value: 18, label: "Edad min"}) : null;
+  const edadMax = desagrega ? Inputs.range([18, 29], {step: 1, value: 29, label: "Edad max"}) : null;
 
   // Recalcula el datalist de municipio segun el estado escrito.
   const dl = html`<datalist>`;
@@ -49,15 +52,18 @@ export function controlPanel({catEnt = [], catMun = []} = {}) {
   nivel.addEventListener("input", actualizarVisibilidad);
   actualizarVisibilidad();
 
+  const controles = [nivel, estado, municipio, dl, sexo, edadMin, edadMax].filter(Boolean);
   const cont = html`<div class="control-panel" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:end;margin:0.5rem 0;">
-    ${nivel}${estado}${municipio}${dl}${sexo}${edadMin}${edadMax}</div>`;
+    ${controles}</div>`;
 
   function valor() {
     return {nivel: nivel.value, nombreEnt: estado.value, nombreMun: municipio.value,
-      sexo: sexo.value, edadMin: edadMin.value, edadMax: edadMax.value};
+      sexo: sexo ? sexo.value : "Todos",
+      edadMin: edadMin ? edadMin.value : 18,
+      edadMax: edadMax ? edadMax.value : 29};
   }
   cont.value = valor();
-  for (const el of [nivel, estado, municipio, sexo, edadMin, edadMax]) {
+  for (const el of [nivel, estado, municipio, sexo, edadMin, edadMax].filter(Boolean)) {
     el.addEventListener("input", () => {
       cont.value = valor();
       cont.dispatchEvent(new Event("input", {bubbles: true}));
