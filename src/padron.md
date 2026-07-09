@@ -57,6 +57,8 @@ const catMun = Array.from(new Map(cruces.map((d) =>
 const nombrePorCve = new Map(catEnt.map((e) => [e.cve, e.nombre]));
 const nombreEntPorCve = nombrePorCve;
 const nombreMunPorCve = new Map(catMun.map((m) => [m.cve, m.nombre]));
+// Años disponibles en el padron (para el filtro por año del controlPanel).
+const aniosPad = [...new Set(padron.map((d) => String(d.año)))].sort((a, b) => +a - +b);
 // Helper: agrupa geograficamente una metrica (suma numerador/denominador) para
 // comparacion. calc(acc) devuelve el valor final; crudoKey el conteo.
 function geoBloque(filas, estado, {num, den, crudoDe}) {
@@ -98,7 +100,7 @@ function geoBloqueAño(filas, estado, {num, den, crudoDe, ratio = true}) {
 ## Cobertura
 
 ```js
-const cobV = view(controlPanel({catEnt, catMun}));
+const cobV = view(controlPanel({catEnt, catMun, anios: aniosPad}));
 ```
 
 ```js
@@ -141,7 +143,7 @@ const cobV = view(controlPanel({catEnt, catMun}));
 ## Perfil por sexo
 
 ```js
-const sexoV = view(controlPanel({catEnt, catMun}));
+const sexoV = view(controlPanel({catEnt, catMun, anios: aniosPad}));
 ```
 
 ```js
@@ -180,7 +182,7 @@ const sexoV = view(controlPanel({catEnt, catMun}));
 ## Distribucion por edad
 
 ```js
-const edadV = view(controlPanel({catEnt, catMun}));
+const edadV = view(controlPanel({catEnt, catMun, anios: aniosPad}));
 ```
 
 ```js
@@ -217,7 +219,7 @@ const edadV = view(controlPanel({catEnt, catMun}));
 ## Beneficiarios unicos por año
 
 ```js
-const uniV = view(controlPanel({catEnt, catMun}));
+const uniV = view(controlPanel({catEnt, catMun, anios: aniosPad}));
 ```
 
 ```js
@@ -245,7 +247,7 @@ const uniV = view(controlPanel({catEnt, catMun}));
 ## Monto: pago mensual promedio por beneficiario
 
 ```js
-const montoV = view(controlPanel({catEnt, catMun}));
+const montoV = view(controlPanel({catEnt, catMun, anios: aniosPad}));
 ```
 
 ```js
@@ -275,7 +277,7 @@ const montoV = view(controlPanel({catEnt, catMun}));
 ## Antiguedad: altas nuevas y continuaciones
 
 ```js
-const antV = view(controlPanel({catEnt, catMun}));
+const antV = view(controlPanel({catEnt, catMun, anios: aniosPad}));
 ```
 
 ```js
@@ -311,7 +313,7 @@ Cada punto es un municipio o entidad; el tamaño representa el universo de
 candidatos. Un panel por año. Al elegir un estado/municipio se resalta su punto.
 
 ```js
-const pobV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"], desagrega: false}));
+const pobV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"], desagrega: false, anios: aniosPad}));
 ```
 
 ```js
@@ -345,7 +347,7 @@ const pobV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"
 ## Cobertura vs marginacion (municipal o estatal, 2021-2025)
 
 ```js
-const margV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"], desagrega: false}));
+const margV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"], desagrega: false, anios: aniosPad}));
 ```
 
 ```js

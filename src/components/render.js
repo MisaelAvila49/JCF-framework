@@ -3,7 +3,7 @@
 // Modos de una unidad -> barras/serie. Modos de comparacion -> mapa (si
 // mapeable) + ranking horizontal. Unica fuente de la decision visual.
 import {barras, barrasH, barrasApiladas, barrasFacetadas, barrasAgrupadas,
-  dispersion, COLOR_SEXO, ESCALA_EDAD} from "./graficas.js";
+  dispersion, heatmapAño, COLOR_SEXO, ESCALA_EDAD} from "./graficas.js";
 import {mapaEntidades, mapaMunicipios} from "./mapa.js";
 
 // config: {metrica, agrupaGeo, mapeable, unidad, tipo, facetaAño, serie, dominioX,
@@ -16,6 +16,14 @@ import {mapaEntidades, mapaMunicipios} from "./mapa.js";
 // contexto: {estado, modo, geoEnt, geoMun, nombrePorCve}
 export function render(config, filas, contexto) {
   const {modo, estado} = contexto;
+  // Filtro por año: si hay un año fijo (no "Todos"), se recorta el universo de
+  // filas para todas las vistas (serie, mapa de contexto y comparacion).
+  if (estado.anio) {
+    filas = filas.filter((d) => String(d.año) === estado.anio);
+    if (contexto.datosCompletos)
+      contexto = {...contexto,
+        datosCompletos: contexto.datosCompletos.filter((d) => String(d.año) === estado.anio)};
+  }
   const comparacion = modo === "compara-estados" || modo === "compara-municipios"
     || modo === "municipios-estado";
   const tipo = config.tipo ?? "serie";
@@ -70,8 +78,10 @@ export function render(config, filas, contexto) {
   }
   // Comparacion: mapa + ranking, un bloque por año si agrupaGeoAño existe.
   // agrupaGeoAño(filas, estado) -> [{año, cve, nombre, valor, crudo}].
-  const out = [];
-  const porAño = config.agrupaGeoAño
+  // Filtro por año: si estado.anio esta fijo, solo ese año (y mapa geografico);
+  // si es "Todos" (anio null), se muestra un heatmap por año en vez de mapas.
+  const anioSel = estado.anio ?? null;
+  let porAño = config.agrupaGeoAño
     ? (() => {
         const m = new Map();
         for (const d of config.agrupaGeoAño(filas, estado)) {
@@ -81,6 +91,22 @@ export function render(config, filas, contexto) {
         return [...m.entries()].sort((a, b) => +a[0] - +b[0]);
       })()
     : [["", config.agrupaGeo(filas, estado)]];
+  if (anioSel) porAño = porAño.filter(([año]) => String(año) === anioSel);
+
+  // Con "Todos" los años y mapa disponible: heatmap por año (bins de % x conteo),
+  // sin mapa geografico. Con un año fijo se cae al mapa geografico normal.
+  const usaHeatmap = config.mapeable && !anioSel && config.agrupaGeoAño;
+  let heatmap = null;
+  if (usaHeatmap) {
+    const puntos = porAño.flatMap(([año, geo]) =>
+      geo.map((d) => ({año, cve: d.cve, nombre: d.nombre, valor: d.valor})));
+    const resaltar = modo === "compara-estados" ? (estado.cveEnt ?? null)
+      : (estado.cveMun ?? null);
+    heatmap = heatmapAño(puntos, {titulo: config.titulo,
+      subtitulo: (config.subtitulo ?? "") + " (distribucion por año)",
+      fuente: config.fuente, resaltarCve: resaltar,
+      etiquetaValor: config.etiquetaValor ?? "valor"});
+  }
 
   // Max global del valor entre todos los años, para fijar el eje de los rankings.
   let maxRank = 0;
@@ -91,7 +117,8 @@ export function render(config, filas, contexto) {
     const tope = modo === "compara-municipios" ? 50 : geo.length;
     const ranking = geo.slice().sort((a, b) => b.valor - a.valor).slice(0, tope);
     const sufAño = año ? `${año}` : "";
-    if (config.mapeable) {
+    // El mapa geografico solo cuando hay un año fijo; en "Todos" va el heatmap.
+    if (config.mapeable && !usaHeatmap) {
       const valores = new Map(geo.map((d) => [d.cve, d.valor]));
       if (modo === "compara-estados") {
         mapas.push(mapaEntidades(contexto.geoEnt, valores, {titulo: sufAño,
@@ -118,6 +145,7 @@ export function render(config, filas, contexto) {
     h.style.cssText = "font-weight:700;font-size:1.15rem;border-bottom:2px solid #E30A18;padding-bottom:.3rem;";
     cont.appendChild(h);
   }
+  if (heatmap) cont.appendChild(heatmap);
   if (mapas.length) cont.appendChild(fila(mapas));
   if (rankings.length) cont.appendChild(fila(rankings));
   return cont;

@@ -307,6 +307,73 @@ export function gridDe(nodos, {titulo = "", subtitulo = "", fuente = ""} = {}) {
   return cont;
 }
 
+// Heatmap facetado por año: UN panel por año. El eje X son rangos (bins) del
+// porcentaje del analisis; cada celda se colorea por cuantas unidades (entidades
+// o municipios) caen en ese rango. datos: [{año, cve, nombre, valor}] (valor en
+// %). resaltarCve: marca con contorno la celda donde cae la unidad elegida.
+// paso: ancho del bin en puntos porcentuales (default 10 -> 0-10,10-20,...).
+export function heatmapAño(datos, {titulo = "", subtitulo = "", fuente = "",
+    resaltarCve = null, paso = 10, etiquetaValor = "valor"} = {}) {
+  const bins = [];
+  for (let lo = 0; lo < 100; lo += paso) bins.push(lo);
+  const etiqBin = (lo) => `${lo}-${Math.min(lo + paso, 100)}%`;
+  const binDe = (v) => {
+    const lo = Math.min(Math.floor(Math.max(0, +v) / paso) * paso, 100 - paso);
+    return etiqBin(lo);
+  };
+  const dominioBins = bins.map(etiqBin);
+  const grupos = new Map();
+  for (const d of datos) {
+    const a = String(d.año);
+    if (!grupos.has(a)) grupos.set(a, []);
+    grupos.get(a).push(d);
+  }
+  // Maximo conteo global para fijar la escala de color entre paneles.
+  let maxN = 0;
+  for (const [, filas] of grupos) {
+    const c = new Map();
+    for (const d of filas) { const b = binDe(d.valor); c.set(b, (c.get(b) ?? 0) + 1); }
+    for (const n of c.values()) if (n > maxN) maxN = n;
+  }
+  const nodos = [...grupos.entries()].sort((a, b) => +a[0] - +b[0])
+    .map(([año, filas]) => {
+      const porBin = new Map();
+      for (const d of filas) {
+        const b = binDe(d.valor);
+        if (!porBin.has(b)) porBin.set(b, {bin: b, n: 0, nombres: [], tieneSel: false});
+        const o = porBin.get(b);
+        o.n += 1;
+        o.nombres.push(d.nombre);
+        if (resaltarCve && d.cve === resaltarCve) o.tieneSel = true;
+      }
+      const celdas = dominioBins.map((b) => porBin.get(b) ?? {bin: b, n: 0, nombres: [], tieneSel: false});
+      const conSel = celdas.filter((c) => c.tieneSel);
+      return Plot.plot({
+        title: String(año),
+        marginBottom: 45,
+        height: 130,
+        x: {domain: dominioBins, label: etiquetaValor, tickRotate: -35},
+        y: {axis: null},
+        color: {scheme: "reds", type: "linear", domain: [0, maxN || 1],
+          legend: true, label: "# unidades"},
+        marks: [
+          Plot.cell(celdas, {x: "bin", fill: "n",
+            channels: {
+              "Rango": (d) => d.bin,
+              "Unidades": (d) => d.n,
+              "Cuales": (d) => d.nombres.slice(0, 8).join(", ") + (d.nombres.length > 8 ? "..." : ""),
+            },
+            tip: {format: {x: false, fill: false}}}),
+          Plot.text(celdas.filter((c) => c.n > 0), {x: "bin", text: (d) => d.n,
+            fill: (d) => d.n > maxN * 0.6 ? "#fff" : "#1D1D1B", fontWeight: 600}),
+          ...(conSel.length ? [Plot.cell(conSel, {x: "bin", fill: "none",
+            stroke: "#1D1D1B", strokeWidth: 2.5})] : []),
+        ],
+      });
+    });
+  return gridDe(nodos, {titulo, subtitulo, fuente});
+}
+
 // Barras facetadas por año: UNA grafica por año en grid de 2 columnas (no paneles
 // internos estrechos). dominioX (opcional): orden del eje x (ej. deciles 1..10).
 export function barrasFacetadas(datos, {x, y, faceta, titulo = "", subtitulo = "",
