@@ -19,7 +19,7 @@ export default {
   style: "custom-style.css",
 
   // En GitHub Actions el sitio se sirve en /<repo>/; en local, en la raiz.
-  base: process.env.GITHUB_ACTIONS ? "/jcf-tablero/" : "/",
+  base: process.env.GITHUB_ACTIONS ? "/JCF-framework/" : "/",
 
   toc: true,
   search: true,
