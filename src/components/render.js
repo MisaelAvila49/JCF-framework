@@ -2,20 +2,43 @@
 // Decide la forma visual de una grafica segun el modo del motor de filtros.
 // Modos de una unidad -> barras/serie. Modos de comparacion -> mapa (si
 // mapeable) + ranking horizontal. Unica fuente de la decision visual.
-import {barras, barrasH} from "./graficas.js";
+import {barras, barrasH, barrasApiladas, barrasFacetadas, dispersion} from "./graficas.js";
 import {mapaEntidades, mapaMunicipios} from "./mapa.js";
 
-// config: {metrica, agrupaGeo, mapeable, unidad, titulo, subtitulo, fuente, etiquetaValor}
-//  - metrica(filas, estado): -> [{clave, valor, crudo}] listo para barras
+// config: {metrica, agrupaGeo, mapeable, unidad, tipo, facetaAño, serie, dominioX,
+//   titulo, subtitulo, fuente, etiquetaValor}
+//  - metrica(filas, estado): -> filas listas para la grafica (con clave/valor/crudo,
+//    o para apilada con x/serie/valor; incluye `año` si se factea).
 //  - agrupaGeo(filas, estado): -> [{cve, nombre, valor, crudo}] para comparacion
+//  - tipo: "serie" | "distribucion" | "apilada" | "dispersion" (default "serie")
+//  - facetaAño: "auto" | true | false (default "auto": factea si desglose o tipo!=serie)
 // contexto: {estado, modo, geoEnt, geoMun, nombrePorCve}
 export function render(config, filas, contexto) {
   const {modo, estado} = contexto;
   const comparacion = modo === "compara-estados" || modo === "compara-municipios"
     || modo === "municipios-estado";
+  const tipo = config.tipo ?? "serie";
+  const desagreg = estado.sexo !== "Todos" || estado.edadMin != null;
+  const factea = config.facetaAño === true
+    || (config.facetaAño === "auto" && (tipo !== "serie" || desagreg));
   if (!comparacion) {
-    // Una unidad: barras normales.
     const datos = config.metrica(filas, estado);
+    if (tipo === "dispersion") {
+      return dispersion(datos, {x: config.x ?? "x", y: config.y ?? "valor",
+        etiquetaKey: config.etiquetaKey, titulo: config.titulo,
+        subtitulo: config.subtitulo, fuente: config.fuente});
+    }
+    if (tipo === "apilada") {
+      return barrasApiladas(datos, {x: config.x ?? "x", serie: config.serie,
+        valor: "valor", faceta: factea ? "año" : null, dominioX: config.dominioX,
+        crudoKey: "crudo", titulo: config.titulo, subtitulo: config.subtitulo,
+        fuente: config.fuente});
+    }
+    if (factea) {
+      return barrasFacetadas(datos, {x: "clave", y: "valor", faceta: "año",
+        formato: config.unidad ?? "pct", crudoKey: "crudo", titulo: config.titulo,
+        subtitulo: config.subtitulo, fuente: config.fuente});
+    }
     return barras(datos, {x: "clave", y: "valor", formato: config.unidad ?? "pct",
       crudoKey: "crudo", titulo: config.titulo, subtitulo: config.subtitulo,
       fuente: config.fuente});
