@@ -35,9 +35,7 @@ export default {
       name: "Padron JCF",
       open: true,
       pages: [
-        { name: "Nacional", path: "/padron/nacional" },
-        { name: "Estatal", path: "/padron/estatal" },
-        { name: "Municipal", path: "/padron/municipal" }
+        { name: "Vista general", path: "/padron" }
       ]
     },
     {
