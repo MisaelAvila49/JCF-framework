@@ -25,7 +25,8 @@ export const REDS = ["#fde8ea", "#f9b8bf", "#f28791", "#e85463", "#d42234", "#a3
 // nombrePorCve: Map cve_ent -> nombre (para el tooltip).
 // formato "pct" formatea el valor con %, "entero" lo colapsa a K/M.
 export function mapaEntidades(geo, valores, {titulo = "", subtitulo = "",
-    fuente = "", nombrePorCve = null, formato = "pct", etiquetaValor = "valor"} = {}) {
+    fuente = "", nombrePorCve = null, formato = "pct", etiquetaValor = "valor",
+    resaltarCve = null, tooltipExtra = null} = {}) {
   // Adjunta el valor a cada feature (por cve_ent).
   const feats = geo.features.map((f) => {
     const cve = ISO_A_CVE[f.properties.id];
@@ -41,27 +42,26 @@ export function mapaEntidades(geo, valores, {titulo = "", subtitulo = "",
     width: 720,
     height: 460,
     color: {
-      scheme: undefined,
       range: REDS,
-      type: "quantize",
-      n: 6,
-      // El colormap de porcentajes siempre va de 0 a 100 (dominio fijo) para
-      // que el color sea comparable entre mapas.
+      type: "linear",
       ...(formato === "pct" ? {domain: [0, 100]} : {}),
       legend: true,
       label: etiquetaValor,
       unknown: "#eee",
+      ticks: formato === "pct" ? [0, 20, 40, 60, 80, 100] : undefined,
       tickFormat: (d) => formato === "pct" ? `${(+d).toFixed(0)}%` : compacto(d),
     },
     marks: [
       Plot.geo(feats, {
         fill: (d) => d.properties.valor,
-        stroke: "#fff",
-        strokeWidth: 0.5,
+        stroke: (d) => resaltarCve && d.properties.cve === resaltarCve ? "#1D1D1B" : "#fff",
+        strokeWidth: (d) => resaltarCve && d.properties.cve === resaltarCve ? 2.5 : 0.5,
+        fillOpacity: (d) => resaltarCve && d.properties.cve !== resaltarCve ? 0.4 : 1,
         channels: {
           Entidad: (d) => d.properties.nombre,
           [etiquetaValor]: (d) => d.properties.valor == null ? "sin dato"
             : (formato === "pct" ? `${(+d.properties.valor).toFixed(1)}%` : compacto(d.properties.valor)),
+          ...(tooltipExtra ? {[tooltipExtra.label]: (d) => tooltipExtra.map.get(d.properties.cve) ?? "sin dato"} : {}),
         },
         tip: true,
       }),
@@ -73,7 +73,7 @@ export function mapaEntidades(geo, valores, {titulo = "", subtitulo = "",
 // estado (properties.CVEGEO = cve_mun de 5 digitos, NOM_MUN = nombre).
 // valores: Map cve_mun -> numero. Colormap fijo 0-100 para porcentajes.
 export function mapaMunicipios(geo, valores, {titulo = "", subtitulo = "",
-    fuente = "", formato = "pct", etiquetaValor = "valor"} = {}) {
+    fuente = "", formato = "pct", etiquetaValor = "valor", resaltarCve = null} = {}) {
   const feats = geo.features.map((f) => {
     const cve = String(f.properties.CVEGEO ?? f.properties.CVE_MUN);
     return {...f, properties: {...f.properties, cve, valor: valores.get(cve) ?? null,
@@ -87,13 +87,17 @@ export function mapaMunicipios(geo, valores, {titulo = "", subtitulo = "",
     width: 720,
     height: 480,
     color: {
-      range: REDS, type: "quantize", n: 6,
+      range: REDS, type: "linear",
       ...(formato === "pct" ? {domain: [0, 100]} : {}),
       legend: true, label: etiquetaValor, unknown: "#eee",
+      ticks: formato === "pct" ? [0, 20, 40, 60, 80, 100] : undefined,
       tickFormat: (d) => formato === "pct" ? `${(+d).toFixed(0)}%` : compacto(d),
     },
     marks: [
-      Plot.geo(feats, {fill: (d) => d.properties.valor, stroke: "#fff", strokeWidth: 0.4,
+      Plot.geo(feats, {fill: (d) => d.properties.valor,
+        stroke: (d) => resaltarCve && d.properties.cve === resaltarCve ? "#1D1D1B" : "#fff",
+        strokeWidth: (d) => resaltarCve && d.properties.cve === resaltarCve ? 2 : 0.4,
+        fillOpacity: (d) => resaltarCve && d.properties.cve !== resaltarCve ? 0.4 : 1,
         channels: {
           Municipio: (d) => d.properties.nombre,
           [etiquetaValor]: (d) => d.properties.valor == null ? "sin dato"
