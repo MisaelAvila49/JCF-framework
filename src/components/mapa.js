@@ -20,11 +20,13 @@ function geoMarks(feats, resaltarCve, {etiquetaValor, formato, tooltipExtra, nom
   if (!resaltarCve) {
     return [Plot.geo(feats, {...base, stroke: "#fff", strokeWidth: 0.5, tip})];
   }
+  // No se atenua el resto (se pierde info): todos con color normal, solo el
+  // seleccionado lleva contorno oscuro grueso encima.
   const otros = feats.filter((f) => f.properties.cve !== resaltarCve);
   const sel = feats.filter((f) => f.properties.cve === resaltarCve);
   return [
-    Plot.geo(otros, {...base, stroke: "#fff", strokeWidth: 0.5, fillOpacity: 0.4, tip}),
-    Plot.geo(sel, {...base, stroke: "#1D1D1B", strokeWidth: 2.5, fillOpacity: 1, tip}),
+    Plot.geo(otros, {...base, stroke: "#fff", strokeWidth: 0.5, tip}),
+    Plot.geo(sel, {...base, stroke: "#1D1D1B", strokeWidth: 2.5, tip}),
   ];
 }
 

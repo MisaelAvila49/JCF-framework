@@ -215,10 +215,11 @@ export function dispersion(datos, {x, y, titulo = "", subtitulo = "", fuente = "
       tip: {channels: canales, format: {x: true, y: true, r: false, fill: false, stroke: false, fillOpacity: false}}};
     const marks = [Plot.ruleY([0], {stroke: "#e2e8f0"})];
     if (resaltarNombre && etiquetaKey) {
-      marks.push(Plot.dot(filas.filter((d) => d[etiquetaKey] !== resaltarNombre),
-        {...base, fill: "#cbd5e1", fillOpacity: 0.35, stroke: null}));
+      // No se atenuan los demas puntos (se pierde info): todos con su color,
+      // solo el seleccionado lleva contorno oscuro encima.
+      marks.push(Plot.dot(filas.filter((d) => d[etiquetaKey] !== resaltarNombre), base));
       marks.push(Plot.dot(filas.filter((d) => d[etiquetaKey] === resaltarNombre),
-        {...base, fill: "#ea580c", fillOpacity: 0.9, stroke: "#1D1D1B", strokeWidth: 1.5}));
+        {...base, fillOpacity: 0.9, stroke: "#1D1D1B", strokeWidth: 1.5}));
     } else {
       marks.push(Plot.dot(filas, base));
     }
