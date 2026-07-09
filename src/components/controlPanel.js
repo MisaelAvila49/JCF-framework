@@ -26,7 +26,9 @@ export function controlPanel({catEnt = [], catMun = []} = {}) {
   const dl = html`<datalist>`;
   function actualizarMunicipios() {
     const q = norm(estado.value);
-    const ent = q ? catEnt.find((e) => norm(e.nombre).includes(q)) : null;
+    const ent = q
+      ? (catEnt.find((e) => norm(e.nombre) === q) ?? catEnt.find((e) => norm(e.nombre).includes(q)))
+      : null;
     const lista = ent
       ? catMun.filter((m) => m.cve.slice(0, 2) === ent.cve).map((m) => m.nombre)
       : [];
@@ -65,12 +67,20 @@ export function controlPanel({catEnt = [], catMun = []} = {}) {
 }
 
 // Traduce el valor del panel (nombres) al `estado` que consume filtro.js (cves).
+// Busca en el catalogo: primero coincidencia exacta (normalizada), luego
+// substring. Evita que "Mexico" (Estado de Mexico) matchee "Ciudad de Mexico".
+function buscarCve(catalogo, texto) {
+  const q = norm(texto);
+  if (!q) return null;
+  const exacto = catalogo.find((c) => norm(c.nombre) === q);
+  if (exacto) return exacto.cve;
+  return catalogo.find((c) => norm(c.nombre).includes(q))?.cve ?? null;
+}
+
 export function resolverEstado(v, {catEnt, catMun}) {
   const nivel = v.nivel.toLowerCase();
-  const cveEnt = v.nombreEnt
-    ? (catEnt.find((e) => norm(e.nombre).includes(norm(v.nombreEnt)))?.cve ?? null) : null;
-  const cveMun = v.nombreMun
-    ? (catMun.find((m) => norm(m.nombre).includes(norm(v.nombreMun)))?.cve ?? null) : null;
+  const cveEnt = v.nombreEnt ? buscarCve(catEnt, v.nombreEnt) : null;
+  const cveMun = v.nombreMun ? buscarCve(catMun, v.nombreMun) : null;
   const edadActiva = !(v.edadMin === 18 && v.edadMax === 29);
   return {
     nivel, cveEnt, cveMun,
