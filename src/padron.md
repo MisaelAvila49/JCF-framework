@@ -74,6 +74,25 @@ function geoBloque(filas, estado, {num, den, crudoDe}) {
   return [...m].map(([cve, a]) => ({cve, nombre: nombreDe.get(cve) ?? cve,
     valor: a.d ? a.n / a.d * 100 : 0, crudo: a.c}));
 }
+// Igual que geoBloque pero por año x cve (para facetar la comparacion por año).
+// ratio=true: valor = num/den*100 (%). ratio=false: valor = num (conteo).
+function geoBloqueAño(filas, estado, {num, den, crudoDe, ratio = true}) {
+  const esMun = estado.nivel === "municipal";
+  const llave = esMun ? "cve_mun" : "cve_ent";
+  const pad = esMun ? 5 : 2;
+  const nombreDe = esMun ? nombreMunPorCve : nombreEntPorCve;
+  const m = new Map();
+  for (const d of filas) {
+    const cve = String(d[llave]).padStart(pad, "0");
+    const k = d.año + "|" + cve;
+    if (!m.has(k)) m.set(k, {año: String(d.año), cve, n: 0, d: 0, c: 0});
+    const a = m.get(k);
+    a.n += num(d); a.d += (den ? den(d) : 0); a.c += crudoDe(d);
+  }
+  return [...m.values()].map((a) => ({año: a.año, cve: a.cve,
+    nombre: nombreDe.get(a.cve) ?? a.cve,
+    valor: ratio ? (a.d ? a.n / a.d * 100 : 0) : a.n, crudo: a.c}));
+}
 ```
 
 ## Cobertura
@@ -111,7 +130,7 @@ const cobV = view(controlPanel({catEnt, catMun}));
       const g = conTasa(agrupar(f, ["año"])).filter((d) => d.tasa != null);
       return g.map((d) => ({clave: String(d.año), año: String(d.año), valor: d.tasa, crudo: d.beneficiarios}));
     },
-    agrupaGeo: (f, e) => geoBloque(f.filter((d) => d.año === 2021), e,
+    agrupaGeoAño: (f, e) => geoBloqueAño(f.filter((d) => +d.candidatos > 0), e,
       {num: (d) => +d.beneficiarios || 0, den: (d) => +d.candidatos || 0, crudoDe: (d) => +d.beneficiarios || 0}),
   };
   const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve};
@@ -149,7 +168,7 @@ const sexoV = view(controlPanel({catEnt, catMun}));
         .map(([año, a]) => ({clave: String(año), año: String(año), valor: a.fem / a.tot * 100, crudo: a.fem}))
         .sort((x, y) => +x.clave - +y.clave);
     },
-    agrupaGeo: (f, e) => geoBloque(f.filter((d) => d.sexo === "FEMENINO" || d.sexo === "MASCULINO"), e,
+    agrupaGeoAño: (f, e) => geoBloqueAño(f.filter((d) => d.sexo === "FEMENINO" || d.sexo === "MASCULINO"), e,
       {num: (d) => d.sexo === "FEMENINO" ? (+d.beneficiarios || 0) : 0,
        den: (d) => +d.beneficiarios || 0, crudoDe: (d) => d.sexo === "FEMENINO" ? (+d.beneficiarios || 0) : 0}),
   };
@@ -215,8 +234,8 @@ const uniV = view(controlPanel({catEnt, catMun}));
       return [...m].map(([año, v]) => ({clave: String(año), año: String(año), valor: v, crudo: v}))
         .sort((a, b) => +a.clave - +b.clave);
     },
-    agrupaGeo: (f, e) => geoBloque(f.filter((d) => d.año === maxProp(f, "año")), e,
-      {num: (d) => +d.unicos || 0, den: () => 1, crudoDe: (d) => +d.unicos || 0}),
+    agrupaGeoAño: (f, e) => geoBloqueAño(f, e,
+      {num: (d) => +d.unicos || 0, crudoDe: (d) => +d.unicos || 0, ratio: false}),
   };
   const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve};
   display(render(cfg, filas, ctx));

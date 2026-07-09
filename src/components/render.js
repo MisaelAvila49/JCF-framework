@@ -56,30 +56,46 @@ export function render(config, filas, contexto) {
       crudoKey: "crudo", titulo: config.titulo, subtitulo: config.subtitulo,
       fuente: config.fuente});
   }
-  // Comparacion: ranking + mapa (si mapeable).
-  const geo = config.agrupaGeo(filas, estado);  // [{cve, nombre, valor, crudo}]
-  const tope = modo === "compara-municipios" ? 50 : geo.length;
-  const ranking = geo.slice().sort((a, b) => b.valor - a.valor).slice(0, tope);
+  // Comparacion: mapa + ranking, un bloque por año si agrupaGeoAño existe.
+  // agrupaGeoAño(filas, estado) -> [{año, cve, nombre, valor, crudo}].
   const out = [];
-  if (config.mapeable) {
-    const valores = new Map(geo.map((d) => [d.cve, d.valor]));
-    if (modo === "compara-estados") {
-      out.push(mapaEntidades(contexto.geoEnt, valores, {subtitulo: config.subtitulo,
-        fuente: config.fuente, nombrePorCve: contexto.nombrePorCve,
-        formato: config.unidad ?? "pct", etiquetaValor: config.etiquetaValor ?? "valor",
-        resaltarCve: estado.cveEnt ?? null, tooltipExtra: config.tooltipExtra}));
-    } else if (modo === "municipios-estado" && contexto.geoMun) {
-      out.push(mapaMunicipios(contexto.geoMun, valores, {subtitulo: config.subtitulo,
-        fuente: config.fuente, formato: config.unidad ?? "pct",
-        etiquetaValor: config.etiquetaValor ?? "valor", resaltarCve: estado.cveMun ?? null}));
+  const porAño = config.agrupaGeoAño
+    ? (() => {
+        const m = new Map();
+        for (const d of config.agrupaGeoAño(filas, estado)) {
+          if (!m.has(d.año)) m.set(d.año, []);
+          m.get(d.año).push(d);
+        }
+        return [...m.entries()].sort((a, b) => +a[0] - +b[0]);
+      })()
+    : [["", config.agrupaGeo(filas, estado)]];
+
+  for (const [año, geo] of porAño) {
+    const tope = modo === "compara-municipios" ? 50 : geo.length;
+    const ranking = geo.slice().sort((a, b) => b.valor - a.valor).slice(0, tope);
+    const sufAño = año ? ` — ${año}` : "";
+    if (config.mapeable) {
+      const valores = new Map(geo.map((d) => [d.cve, d.valor]));
+      if (modo === "compara-estados") {
+        out.push(mapaEntidades(contexto.geoEnt, valores, {titulo: config.titulo + sufAño,
+          subtitulo: config.subtitulo, fuente: config.fuente, nombrePorCve: contexto.nombrePorCve,
+          formato: config.unidad ?? "pct", etiquetaValor: config.etiquetaValor ?? "valor",
+          resaltarCve: estado.cveEnt ?? null, tooltipExtra: config.tooltipExtra}));
+      } else if (modo === "municipios-estado" && contexto.geoMun) {
+        out.push(mapaMunicipios(contexto.geoMun, valores, {titulo: config.titulo + sufAño,
+          subtitulo: config.subtitulo, fuente: config.fuente, formato: config.unidad ?? "pct",
+          etiquetaValor: config.etiquetaValor ?? "valor", resaltarCve: estado.cveMun ?? null}));
+      }
     }
+    out.push(barrasH(ranking.map((d) => ({nombre: d.nombre, valor: d.valor, crudo: d.crudo})),
+      {x: "valor", y: "nombre", formato: config.unidad ?? "pct", crudoKey: "crudo",
+       titulo: config.titulo + sufAño, subtitulo: (config.subtitulo ?? "") + " (ranking)",
+       fuente: config.fuente}));
   }
-  out.push(barrasH(ranking.map((d) => ({nombre: d.nombre, valor: d.valor, crudo: d.crudo})),
-    {x: "valor", y: "nombre", formato: config.unidad ?? "pct", crudoKey: "crudo",
-     titulo: config.titulo, subtitulo: (config.subtitulo ?? "") + " (ranking)",
-     fuente: config.fuente}));
-  // Envolver en un contenedor para que display() renderice todo junto.
+  // Contenedor a ancho completo para que las facetas por año usen todo el ancho.
   const cont = document.createElement("div");
+  cont.style.display = "grid";
+  cont.style.gap = "1.5rem";
   for (const nodo of out) cont.appendChild(nodo);
   return cont;
 }
