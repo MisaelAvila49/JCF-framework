@@ -13,7 +13,18 @@ import {
   maxProp,
   COLOR_SEXO,
 } from "./components/graficas.js"
-import { mapaEntidades } from "./components/mapa.js"
+import { mapaEntidades, mapasPorAño } from "./components/mapa.js"
+const NIVELES = ["Sin escolaridad", "Primaria", "Secundaria", "Media superior", "Superior", "Posgrado"]
+const ACTIV = ["Solo estudia", "Estudia y trabaja", "Solo trabaja", "Ninguna"]
+const escPer = FileAttachment("./data/enigh_persona_escolaridad.csv").csv({
+  typed: true,
+})
+const actPer = FileAttachment("./data/enigh_persona_actividad.csv").csv({
+  typed: true,
+})
+const pcPer = FileAttachment("./data/enigh_persona_ingreso_pc.csv").csv({
+  typed: true,
+})
 const beca = FileAttachment("./data/enigh_persona_beca.csv").csv({
   typed: true,
 })
@@ -156,6 +167,96 @@ const v2 = view(
 }
 ```
 
+## Escolaridad de la persona con la beca
+
+```js
+const vEsc = view(
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true })
+)
+```
+
+```js
+{
+  const est = resolverEstado(vEsc, { catEnt, catMun: [] })
+  const f = aplicar(escPer, est)
+  const totAño = new Map()
+  for (const d of f) totAño.set(d.año, (totAño.get(d.año) ?? 0) + d.personas)
+  const m = new Map()
+  for (const d of f) {
+    const k = d.año + "|" + d.nivel
+    m.set(k, (m.get(k) ?? 0) + d.personas)
+  }
+  const filas = [...m].map(([k, v]) => {
+    const [a, n] = k.split("|")
+    return {
+      año: a,
+      nivel: n,
+      per: v,
+      pct: totAño.get(+a) ? (v / totAño.get(+a)) * 100 : 0,
+    }
+  })
+  display(
+    filas.length
+      ? barrasFacetadas(filas, {
+          x: "nivel",
+          y: "pct",
+          faceta: "año",
+          crudoKey: "per",
+          dominioX: NIVELES,
+          titulo: "Escolaridad de la persona con la beca" + etiq(est),
+          subtitulo: "% por nivel educativo, un panel por año",
+          fuente: "Fuente: INEGI (ENIGH)",
+        })
+      : html`<p>Sin datos para la seleccion.</p>`
+  )
+}
+```
+
+## Actividad de la persona con la beca
+
+```js
+const vAct = view(
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true })
+)
+```
+
+```js
+{
+  const est = resolverEstado(vAct, { catEnt, catMun: [] })
+  const f = aplicar(actPer, est)
+  const totAño = new Map()
+  for (const d of f) totAño.set(d.año, (totAño.get(d.año) ?? 0) + d.personas)
+  const m = new Map()
+  for (const d of f) {
+    const k = d.año + "|" + d.categoria
+    m.set(k, (m.get(k) ?? 0) + d.personas)
+  }
+  const filas = [...m].map(([k, v]) => {
+    const [a, c] = k.split("|")
+    return {
+      año: a,
+      categoria: c,
+      per: v,
+      pct: totAño.get(+a) ? (v / totAño.get(+a)) * 100 : 0,
+    }
+  })
+  display(
+    filas.length
+      ? barrasFacetadas(filas, {
+          x: "categoria",
+          y: "pct",
+          faceta: "año",
+          crudoKey: "per",
+          dominioX: ACTIV,
+          titulo: "Actividad de la persona con la beca" + etiq(est),
+          subtitulo: "% que estudia y/o trabaja, un panel por año",
+          fuente: "Fuente: INEGI (ENIGH)",
+        })
+      : html`<p>Sin datos para la seleccion.</p>`
+  )
+}
+```
+
 ## Personas con la beca por decil
 
 ```js
@@ -240,23 +341,27 @@ const v3 = view(
 }
 ```
 
-## Mapa de personas con la beca por entidad (año reciente)
+## Mapa de personas con la beca por entidad (todos los años)
 
 ```js
 {
-  const añoM = maxProp(beca, "año")
-  const porCve = new Map()
-  for (const d of beca.filter((x) => x.año === añoM)) {
+  const porAño = new Map()
+  const totAño = new Map()
+  for (const d of beca) {
     const cve = String(d.cve_ent).padStart(2, "0")
-    porCve.set(cve, (porCve.get(cve) ?? 0) + d.personas)
+    if (!porAño.has(d.año)) porAño.set(d.año, new Map())
+    const mp = porAño.get(d.año)
+    mp.set(cve, (mp.get(cve) ?? 0) + d.personas)
+    totAño.set(d.año, (totAño.get(d.año) ?? 0) + d.personas)
   }
-  const tot = [...porCve.values()].reduce((s, v) => s + v, 0)
-  const valores = new Map(
-    [...porCve].map(([cve, v]) => [cve, tot ? (v / tot) * 100 : 0])
-  )
+  for (const [año, mp] of porAño) {
+    const t = totAño.get(año) || 0
+    for (const [cve, v] of mp) mp.set(cve, t ? (v / t) * 100 : 0)
+  }
   display(
-    mapaEntidades(await geoEnt, valores, {
-      subtitulo: `% de personas con beca por entidad (${añoM})`,
+    mapasPorAño(porAño, await geoEnt, {
+      titulo: "Personas con la beca por entidad",
+      subtitulo: "% de personas con beca por entidad, por año",
       fuente: "Fuente: INEGI (ENIGH)",
       nombrePorCve,
       formato: "pct",
@@ -415,6 +520,75 @@ Ratio beca / ingreso del hogar de la persona con beca, en cajas de 10.
       titulo: "Cobertura por decil (personas)",
       subtitulo: "% de candidatas con beca por decil, un panel por año",
       fuente: "Fuente: INEGI (ENIGH)",
+    })
+  )
+}
+```
+
+## Ingreso per capita: con beca vs candidato
+
+Ingreso corriente per capita del hogar (pesos reales base 2024), promedio por entidad. Nacional o estatal.
+
+```js
+const vPc = view(
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false })
+)
+```
+
+```js
+{
+  const est = resolverEstado(vPc, { catEnt, catMun: [] })
+  let f = pcPer
+  if (est.nivel === "estatal" && est.cveEnt)
+    f = f.filter((d) => String(d.cve_ent).padStart(2, "0") === est.cveEnt)
+  // Promedio simple entre entidades cuando es nacional.
+  const m = new Map()
+  for (const d of f) {
+    const k = d.año + "|" + d.grupo
+    if (!m.has(k)) m.set(k, { s: 0, n: 0 })
+    const a = m.get(k)
+    a.s += +d.ing_pc_real_prom
+    a.n += 1
+  }
+  const filas = [...m].map(([k, v]) => {
+    const [a, g] = k.split("|")
+    return { año: a, grupo: g, val: v.n ? v.s / v.n : 0 }
+  })
+  display(
+    filas.length
+      ? barrasFacetadas(filas, {
+          x: "grupo",
+          y: "val",
+          faceta: "año",
+          dominioX: ["con beca", "candidato"],
+          formato: "entero",
+          titulo: "Ingreso per capita: con beca vs candidato" + etiq(est),
+          subtitulo: "pesos reales (base 2024), un panel por año",
+          fuente: "Fuente: INEGI (ENIGH)",
+        })
+      : html`<p>Sin datos para la seleccion.</p>`
+  )
+}
+```
+
+## Mapa de ingreso per capita (con beca, todos los años)
+
+```js
+{
+  const porAño = new Map()
+  for (const d of pcPer.filter((x) => x.grupo === "con beca")) {
+    const cve = String(d.cve_ent).padStart(2, "0")
+    if (!porAño.has(d.año)) porAño.set(d.año, new Map())
+    porAño.get(d.año).set(cve, +d.ing_pc_real_prom)
+  }
+  display(
+    mapasPorAño(porAño, await geoEnt, {
+      titulo: "Ingreso per capita (personas con beca)",
+      subtitulo: "pesos reales (base 2024) por entidad, por año",
+      fuente: "Fuente: INEGI (ENIGH)",
+      nombrePorCve,
+      formato: "entero",
+      etiquetaValor: "ing. pc",
     })
   )
 }
