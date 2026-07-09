@@ -11,9 +11,14 @@ import {
   barrasApiladas,
   barrasFacetadas,
   barrasH,
+  dispersion,
   maxProp,
 } from "./components/graficas.js"
-import { mapaEntidades as mapaEnt } from "./components/mapa.js"
+import { mapaEntidades as mapaEnt, mapasPorAño } from "./components/mapa.js"
+const escJefe = FileAttachment("./data/enigh_escolaridad_jefe.csv").csv({
+  typed: true,
+})
+const NIVELES = ["Sin escolaridad", "Primaria", "Secundaria", "Media superior", "Superior", "Posgrado"]
 const cobN = FileAttachment("./data/enigh_c1_cobertura.csv").csv({
   typed: true,
 })
@@ -118,19 +123,20 @@ const v1 = view(
 }
 ```
 
-## Mapa de cobertura por entidad (año reciente)
+## Mapa de cobertura por entidad (todos los años)
 
 ```js
 {
-  const añoM = maxProp(cobE, "año")
-  const valores = new Map(
-    cobE
-      .filter((d) => d.año === añoM)
-      .map((d) => [String(d.cve_ent).padStart(2, "0"), +d.pct_con_jcf])
-  )
+  const porAño = new Map()
+  for (const d of cobE) {
+    const cve = String(d.cve_ent).padStart(2, "0")
+    if (!porAño.has(d.año)) porAño.set(d.año, new Map())
+    porAño.get(d.año).set(cve, +d.pct_con_jcf)
+  }
   display(
-    mapaEnt(await geoEnt, valores, {
-      subtitulo: `% de hogares con candidato con beca (${añoM})`,
+    mapasPorAño(porAño, await geoEnt, {
+      titulo: "Cobertura por entidad",
+      subtitulo: "% de hogares con candidato que reciben la beca, por año",
       fuente: "Fuente: INEGI (ENIGH)",
       nombrePorCve,
       formato: "pct",
@@ -424,6 +430,125 @@ const v6 = view(
         fuente: "Fuente: INEGI (ENIGH)",
       }
     )
+  )
+}
+```
+
+## Escolaridad del jefe del hogar
+
+```js
+{
+  const totAño = new Map()
+  for (const d of escJefe) totAño.set(d.año, (totAño.get(d.año) ?? 0) + (+d.hogares || 0))
+  const filas = escJefe.map((d) => ({
+    año: String(d.año),
+    nivel: d.nivel,
+    pct: totAño.get(d.año) ? (+d.hogares || 0) / totAño.get(d.año) * 100 : 0,
+    hog: +d.hogares || 0,
+  }))
+  display(
+    barrasFacetadas(filas, {
+      x: "nivel",
+      y: "pct",
+      faceta: "año",
+      dominioX: NIVELES,
+      crudoKey: "hog",
+      titulo: "Escolaridad del jefe del hogar",
+      subtitulo: "% de hogares con beca por nivel del jefe, un panel por año",
+      fuente: "Fuente: INEGI (ENIGH)",
+    })
+  )
+}
+```
+
+## Pobreza vs escolaridad del jefe
+
+```js
+{
+  const alto = new Set(["Media superior", "Superior", "Posgrado"])
+  const porEntAño = new Map()
+  for (const d of escJefe) {
+    const cve = String(d.cve_ent).padStart(2, "0")
+    const k = d.año + "|" + cve
+    if (!porEntAño.has(k)) porEntAño.set(k, { año: String(d.año), cve, altos: 0, tot: 0 })
+    const a = porEntAño.get(k)
+    a.tot += +d.hogares || 0
+    if (alto.has(d.nivel)) a.altos += +d.hogares || 0
+  }
+  const pobEnt = new Map()
+  for (const d of cruces) {
+    if (d.pct_pobreza === "" || d.pct_pobreza == null) continue
+    const cve = String(d.cve_ent).padStart(2, "0")
+    const k = d.año + "|" + cve
+    if (!pobEnt.has(k)) pobEnt.set(k, { s: 0, n: 0 })
+    const a = pobEnt.get(k)
+    a.s += +d.pct_pobreza
+    a.n += 1
+  }
+  const pts = [...porEntAño.values()]
+    .filter((d) => d.tot > 0)
+    .map((d) => {
+      const p = pobEnt.get(d.año + "|" + d.cve)
+      return { año: d.año, x: p ? p.s / p.n : null, valor: (d.altos / d.tot) * 100, universo: d.tot, nombre: nombrePorCve.get(d.cve) ?? d.cve }
+    })
+    .filter((d) => d.x != null)
+  display(
+    dispersion(pts, {
+      x: "x",
+      y: "valor",
+      faceta: "año",
+      etiquetaKey: "nombre",
+      rKey: "universo",
+      titulo: "Pobreza vs escolaridad del jefe",
+      subtitulo: "Cada punto es una entidad; y = % jefes con media superior o mas",
+      fuente: "Fuente: INEGI (ENIGH) / CONEVAL",
+    })
+  )
+}
+```
+
+## Marginacion vs escolaridad del jefe
+
+```js
+{
+  const alto = new Set(["Media superior", "Superior", "Posgrado"])
+  const porEntAño = new Map()
+  for (const d of escJefe) {
+    const cve = String(d.cve_ent).padStart(2, "0")
+    const k = d.año + "|" + cve
+    if (!porEntAño.has(k)) porEntAño.set(k, { año: String(d.año), cve, altos: 0, tot: 0 })
+    const a = porEntAño.get(k)
+    a.tot += +d.hogares || 0
+    if (alto.has(d.nivel)) a.altos += +d.hogares || 0
+  }
+  const marEnt = new Map()
+  for (const d of cruces) {
+    if (d.indice_marginacion === "" || d.indice_marginacion == null) continue
+    const cve = String(d.cve_ent).padStart(2, "0")
+    const k = d.año + "|" + cve
+    if (!marEnt.has(k)) marEnt.set(k, { s: 0, n: 0 })
+    const a = marEnt.get(k)
+    a.s += +d.indice_marginacion
+    a.n += 1
+  }
+  const pts = [...porEntAño.values()]
+    .filter((d) => d.tot > 0)
+    .map((d) => {
+      const p = marEnt.get(d.año + "|" + d.cve)
+      return { año: d.año, x: p ? p.s / p.n : null, valor: (d.altos / d.tot) * 100, universo: d.tot, nombre: nombrePorCve.get(d.cve) ?? d.cve }
+    })
+    .filter((d) => d.x != null)
+  display(
+    dispersion(pts, {
+      x: "x",
+      y: "valor",
+      faceta: "año",
+      etiquetaKey: "nombre",
+      rKey: "universo",
+      titulo: "Marginacion vs escolaridad del jefe",
+      subtitulo: "Cada punto es una entidad; y = % jefes con media superior o mas",
+      fuente: "Fuente: INEGI (ENIGH) / CONAPO",
+    })
   )
 }
 ```
