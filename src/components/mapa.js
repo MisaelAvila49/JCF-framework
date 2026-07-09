@@ -3,7 +3,7 @@
 // El geojson (src/data/mx_entidades.json) identifica cada estado con un codigo
 // ISO en properties.id; aqui se traduce a la cve_ent oficial de INEGI (01-32).
 import * as Plot from "npm:@observablehq/plot";
-import {compacto} from "./graficas.js";
+import {compacto, gridDe} from "./graficas.js";
 
 // Construye las marcas del mapa: una capa (o dos si hay resaltado, con estilos
 // CONSTANTES para que stroke/opacity no aparezcan como canales en el tooltip).
@@ -104,4 +104,14 @@ export function mapaMunicipios(geo, valores, {titulo = "", subtitulo = "",
     },
     marks: geoMarks(feats, resaltarCve, {etiquetaValor, formato, tooltipExtra: null, nombreKey: "Municipio"}),
   });
+}
+
+// Genera UN mapa de entidades por año en grid de 2 columnas. porAño: Map año ->
+// (Map cve_ent -> valor). titulo/subtitulo/fuente van al contenedor.
+export function mapasPorAño(porAño, geo, {titulo = "", subtitulo = "", fuente = "",
+    nombrePorCve = null, formato = "pct", etiquetaValor = "valor", resaltarCve = null} = {}) {
+  const nodos = [...porAño.entries()].sort((a, b) => +a[0] - +b[0])
+    .map(([año, valores]) => mapaEntidades(geo, valores, {titulo: String(año),
+      nombrePorCve, formato, etiquetaValor, resaltarCve}));
+  return gridDe(nodos, {titulo, subtitulo, fuente});
 }
