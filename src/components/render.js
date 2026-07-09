@@ -27,34 +27,46 @@ export function render(config, filas, contexto) {
     || (config.facetaAño !== false && tipo !== "serie");
   if (!comparacion) {
     const datos = config.metrica(filas, estado);
+    // Grafica principal segun tipo/desglose.
+    let principal;
     if (tipo === "dispersion") {
-      return dispersion(datos, {x: config.x ?? "x", y: config.y ?? "valor",
+      principal = dispersion(datos, {x: config.x ?? "x", y: config.y ?? "valor",
         etiquetaKey: config.etiquetaKey, titulo: config.titulo,
         subtitulo: config.subtitulo, fuente: config.fuente});
-    }
-    if (tipo === "apilada") {
-      return barrasApiladas(datos, {x: config.x ?? "x", serie: config.serie,
+    } else if (tipo === "apilada") {
+      principal = barrasApiladas(datos, {x: config.x ?? "x", serie: config.serie,
         valor: "valor", faceta: factea ? "año" : null, dominioX: config.dominioX,
         crudoKey: "crudo", titulo: config.titulo, subtitulo: config.subtitulo,
         fuente: config.fuente});
-    }
-    // Serie con desglose sexo/edad: barras agrupadas por año, una barra por serie.
-    if (tipo === "serie" && desagreg && config.serieDesglose) {
-      return barrasAgrupadas(datos, {x: "año", serie: "serie", y: "valor",
+    } else if (tipo === "serie" && desagreg && config.serieDesglose) {
+      principal = barrasAgrupadas(datos, {x: "año", serie: "serie", y: "valor",
         formato: config.unidad ?? "pct", crudoKey: "crudo",
         colorSerie: sexoAct ? COLOR_SEXO : null,
         escalaColor: edadAct ? ESCALA_EDAD : null,
         serieLabel: sexoAct ? "Sexo" : "Edad", xLabel: "año",
         titulo: config.titulo, subtitulo: config.subtitulo, fuente: config.fuente});
-    }
-    if (factea) {
-      return barrasFacetadas(datos, {x: "clave", y: "valor", faceta: "año",
+    } else if (factea) {
+      principal = barrasFacetadas(datos, {x: "clave", y: "valor", faceta: "año",
         formato: config.unidad ?? "pct", crudoKey: "crudo", titulo: config.titulo,
         subtitulo: config.subtitulo, fuente: config.fuente});
+    } else {
+      principal = barras(datos, {x: "clave", y: "valor", formato: config.unidad ?? "pct",
+        crudoKey: "crudo", titulo: config.titulo, subtitulo: config.subtitulo,
+        fuente: config.fuente});
     }
-    return barras(datos, {x: "clave", y: "valor", formato: config.unidad ?? "pct",
-      crudoKey: "crudo", titulo: config.titulo, subtitulo: config.subtitulo,
-      fuente: config.fuente});
+    // Mapa de contexto persistente: si la grafica es mapeable y hay una unidad
+    // elegida, se muestra el mapa (nacional o del estado) con la unidad resaltada,
+    // usando los datos completos (sin el filtro de unidad).
+    const mapaCtx = (config.mapeable && contexto.datosCompletos && config.agrupaGeoAño
+      && (modo === "estado" || modo === "municipio"))
+      ? mapaContexto(config, contexto, estado, modo) : null;
+    if (!mapaCtx) return principal;
+    const cont = document.createElement("div");
+    cont.style.display = "grid";
+    cont.style.gap = "1.5rem";
+    cont.appendChild(mapaCtx);
+    cont.appendChild(principal);
+    return cont;
   }
   // Comparacion: mapa + ranking, un bloque por año si agrupaGeoAño existe.
   // agrupaGeoAño(filas, estado) -> [{año, cve, nombre, valor, crudo}].
@@ -70,32 +82,73 @@ export function render(config, filas, contexto) {
       })()
     : [["", config.agrupaGeo(filas, estado)]];
 
+  const mapas = [], rankings = [];
   for (const [año, geo] of porAño) {
     const tope = modo === "compara-municipios" ? 50 : geo.length;
     const ranking = geo.slice().sort((a, b) => b.valor - a.valor).slice(0, tope);
-    const sufAño = año ? ` — ${año}` : "";
+    const sufAño = año ? `${año}` : "";
     if (config.mapeable) {
       const valores = new Map(geo.map((d) => [d.cve, d.valor]));
       if (modo === "compara-estados") {
-        out.push(mapaEntidades(contexto.geoEnt, valores, {titulo: config.titulo + sufAño,
+        mapas.push(mapaEntidades(contexto.geoEnt, valores, {titulo: sufAño,
           subtitulo: config.subtitulo, fuente: config.fuente, nombrePorCve: contexto.nombrePorCve,
           formato: config.unidad ?? "pct", etiquetaValor: config.etiquetaValor ?? "valor",
           resaltarCve: estado.cveEnt ?? null, tooltipExtra: config.tooltipExtra}));
       } else if (modo === "municipios-estado" && contexto.geoMun) {
-        out.push(mapaMunicipios(contexto.geoMun, valores, {titulo: config.titulo + sufAño,
+        mapas.push(mapaMunicipios(contexto.geoMun, valores, {titulo: sufAño,
           subtitulo: config.subtitulo, fuente: config.fuente, formato: config.unidad ?? "pct",
           etiquetaValor: config.etiquetaValor ?? "valor", resaltarCve: estado.cveMun ?? null}));
       }
     }
-    out.push(barrasH(ranking.map((d) => ({nombre: d.nombre, valor: d.valor, crudo: d.crudo})),
+    rankings.push(barrasH(ranking.map((d) => ({nombre: d.nombre, valor: d.valor, crudo: d.crudo})),
       {x: "valor", y: "nombre", formato: config.unidad ?? "pct", crudoKey: "crudo",
-       titulo: config.titulo + sufAño, subtitulo: (config.subtitulo ?? "") + " (ranking)",
-       fuente: config.fuente}));
+       titulo: sufAño, subtitulo: (config.subtitulo ?? "") + " (ranking)", fuente: config.fuente}));
   }
-  // Contenedor a ancho completo para que las facetas por año usen todo el ancho.
+  // Mapas juntos en una fila (subplots por año, lado a lado); rankings en otra.
   const cont = document.createElement("div");
   cont.style.display = "grid";
-  cont.style.gap = "1.5rem";
-  for (const nodo of out) cont.appendChild(nodo);
+  cont.style.gap = "2rem";
+  if (config.titulo) {
+    const h = document.createElement("div");
+    h.textContent = config.titulo;
+    h.style.cssText = "font-weight:700;font-size:1.15rem;border-bottom:2px solid #E30A18;padding-bottom:.3rem;";
+    cont.appendChild(h);
+  }
+  if (mapas.length) cont.appendChild(fila(mapas, 360));
+  if (rankings.length) cont.appendChild(fila(rankings, 300));
   return cont;
+}
+
+// Envuelve nodos en un grid horizontal responsivo (subplots lado a lado).
+function fila(nodos, minPx) {
+  const f = document.createElement("div");
+  f.style.cssText = `display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(${minPx}px,1fr));align-items:start;`;
+  for (const n of nodos) { n.style.maxWidth = "100%"; f.appendChild(n); }
+  return f;
+}
+
+// Mapa de contexto (nacional o del estado) con la unidad elegida resaltada, sobre
+// los datos completos. Muestra un mini-mapa por año (fila horizontal).
+function mapaContexto(config, contexto, estado, modo) {
+  const geoTodos = config.agrupaGeoAño(contexto.datosCompletos, estado);
+  const porAño = new Map();
+  for (const d of geoTodos) {
+    if (!porAño.has(d.año)) porAño.set(d.año, []);
+    porAño.get(d.año).push(d);
+  }
+  const mapas = [];
+  for (const [año, geo] of [...porAño.entries()].sort((a, b) => +a[0] - +b[0])) {
+    const valores = new Map(geo.map((d) => [d.cve, d.valor]));
+    if (modo === "estado") {
+      mapas.push(mapaEntidades(contexto.geoEnt, valores, {titulo: año,
+        subtitulo: "seleccion resaltada", fuente: config.fuente, nombrePorCve: contexto.nombrePorCve,
+        formato: config.unidad ?? "pct", etiquetaValor: config.etiquetaValor ?? "valor",
+        resaltarCve: estado.cveEnt}));
+    } else if (modo === "municipio" && contexto.geoMun) {
+      mapas.push(mapaMunicipios(contexto.geoMun, valores, {titulo: año,
+        subtitulo: "seleccion resaltada", fuente: config.fuente, formato: config.unidad ?? "pct",
+        etiquetaValor: config.etiquetaValor ?? "valor", resaltarCve: estado.cveMun}));
+    }
+  }
+  return fila(mapas, 320);
 }

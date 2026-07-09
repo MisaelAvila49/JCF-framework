@@ -133,7 +133,7 @@ const cobV = view(controlPanel({catEnt, catMun}));
     agrupaGeoAño: (f, e) => geoBloqueAño(f.filter((d) => +d.candidatos > 0), e,
       {num: (d) => +d.beneficiarios || 0, den: (d) => +d.candidatos || 0, crudoDe: (d) => +d.beneficiarios || 0}),
   };
-  const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve};
+  const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve, datosCompletos: padron};
   display(render(cfg, filas, ctx));
 }
 ```
@@ -172,7 +172,7 @@ const sexoV = view(controlPanel({catEnt, catMun}));
       {num: (d) => d.sexo === "FEMENINO" ? (+d.beneficiarios || 0) : 0,
        den: (d) => +d.beneficiarios || 0, crudoDe: (d) => d.sexo === "FEMENINO" ? (+d.beneficiarios || 0) : 0}),
   };
-  const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve};
+  const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve, datosCompletos: padron};
   display(render(cfg, filas, ctx));
 }
 ```
@@ -237,7 +237,7 @@ const uniV = view(controlPanel({catEnt, catMun}));
     agrupaGeoAño: (f, e) => geoBloqueAño(f, e,
       {num: (d) => +d.unicos || 0, crudoDe: (d) => +d.unicos || 0, ratio: false}),
   };
-  const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve};
+  const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve, datosCompletos: padron};
   display(render(cfg, filas, ctx));
 }
 ```
