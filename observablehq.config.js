@@ -31,29 +31,9 @@ export default {
 </span>`,
 
   pages: [
-    {
-      name: "Padron JCF",
-      open: true,
-      pages: [
-        { name: "Vista general", path: "/padron" }
-      ]
-    },
-    {
-      name: "ENIGH Hogares",
-      open: true,
-      pages: [
-        { name: "Nacional", path: "/enigh-hogares/nacional" },
-        { name: "Estatal", path: "/enigh-hogares/estatal" }
-      ]
-    },
-    {
-      name: "ENIGH Personas",
-      open: true,
-      pages: [
-        { name: "Nacional", path: "/enigh-personas/nacional" },
-        { name: "Estatal", path: "/enigh-personas/estatal" }
-      ]
-    }
+    { name: "Padron JCF", path: "/padron" },
+    { name: "ENIGH Hogares", path: "/enigh-hogares" },
+    { name: "ENIGH Personas", path: "/enigh-personas" }
   ],
 
   head: `<link rel="icon" href="/images/social_data_original.svg" type="image/svg+xml">
