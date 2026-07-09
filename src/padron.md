@@ -10,7 +10,7 @@ import {controlPanel, resolverEstado} from "./components/controlPanel.js";
 import {filtrar} from "./components/filtro.js";
 import {render} from "./components/render.js";
 import {conTasa, agrupar} from "./components/agregar.js";
-import {dispersion} from "./components/graficas.js";
+import {dispersion, maxProp} from "./components/graficas.js";
 const padron = FileAttachment("./data/padron_agregado.csv").csv({typed: true});
 const cruces = FileAttachment("./data/padron_cruces.csv").csv({typed: true});
 const unicos = FileAttachment("./data/padron_unicos_geo.csv").csv({typed: true});
@@ -112,7 +112,9 @@ const sexoV = view(controlPanel({catEnt, catMun}));
 ```js
 {
   const est = resolverEstado(sexoV, {catEnt, catMun});
-  const {filas, modo} = filtrar(padron, est);
+  // Esta grafica ES el desglose por sexo: se ignora el filtro de sexo del panel
+  // (si no, elegir un sexo daria 100%). El denominador es el total de ambos sexos.
+  const {filas, modo} = filtrar(padron, {...est, sexo: "Todos"});
   const cfg = {
     unidad: "pct", mapeable: true, tipo: "serie", facetaAño: false, etiquetaValor: "% mujeres",
     titulo: "Perfil por sexo", subtitulo: "% de mujeres entre los beneficiarios",
@@ -142,14 +144,16 @@ const edadV = view(controlPanel({catEnt, catMun}));
 ```js
 {
   const est = resolverEstado(edadV, {catEnt, catMun});
-  const {filas, modo} = filtrar(padron, est);
+  // Esta grafica ES la distribucion por edad: se ignora el filtro de edad del
+  // panel (si no, un rango daria una distribucion recortada artificialmente).
+  const {filas, modo} = filtrar(padron, {...est, edadMin: null, edadMax: null});
   const cfg = {
     unidad: "pct", mapeable: false, tipo: "distribucion", facetaAño: false,
     titulo: "Distribucion por edad", subtitulo: "% de beneficiarios por edad (año reciente)",
     fuente: "Fuente: STPS",
     metrica: (f) => {
       const conEdad = f.filter((d) => d.edad !== "" && d.edad != null && +d.edad <= 32);
-      const añoMax = Math.max(2021, ...conEdad.map((d) => d.año));
+      const añoMax = Math.max(2021, maxProp(conEdad, "año"));
       const g = conEdad.filter((d) => d.año === añoMax);
       const tot = g.reduce((s, d) => s + (+d.beneficiarios || 0), 0);
       const m = new Map();
@@ -184,7 +188,7 @@ const uniV = view(controlPanel({catEnt, catMun}));
       return [...m].map(([año, v]) => ({clave: String(año), año: String(año), valor: v, crudo: v}))
         .sort((a, b) => +a.clave - +b.clave);
     },
-    agrupaGeo: (f, e) => geoBloque(f.filter((d) => d.año === Math.max(...f.map((x) => x.año))), e,
+    agrupaGeo: (f, e) => geoBloque(f.filter((d) => d.año === maxProp(f, "año")), e,
       {num: (d) => +d.unicos || 0, den: () => 1, crudoDe: (d) => +d.unicos || 0}),
   };
   const ctx = {modo, estado: est, geoEnt: await geoEnt, geoMun: await geoMunDe(est), nombrePorCve};
@@ -237,9 +241,16 @@ const antV = view(controlPanel({catEnt, catMun}));
     titulo: "Altas nuevas y continuaciones", subtitulo: "% de beneficiarios por tipo y año",
     fuente: "Fuente: STPS",
     metrica: (f) => {
+      // Agregar por año x tipo (las filas vienen por ent/mun/edad/sexo).
+      const porAñoTipo = new Map();
+      for (const d of f) {
+        const k = d.año + "|" + d.tipo;
+        porAñoTipo.set(k, (porAñoTipo.get(k) ?? 0) + (+d.n || 0));
+      }
       const tot = new Map();
-      for (const d of f) tot.set(d.año, (tot.get(d.año) ?? 0) + (+d.n || 0));
-      return f.map((d) => ({año: String(d.año), tipo: d.tipo, valor: tot.get(d.año) ? (+d.n || 0) / tot.get(d.año) * 100 : 0, crudo: +d.n || 0}));
+      for (const [k, v] of porAñoTipo) { const a = k.split("|")[0]; tot.set(a, (tot.get(a) ?? 0) + v); }
+      return [...porAñoTipo].map(([k, v]) => { const [a, tipo] = k.split("|");
+        return {año: String(a), tipo, valor: tot.get(a) ? v / tot.get(a) * 100 : 0, crudo: v}; });
     },
     agrupaGeo: () => [],
   };
