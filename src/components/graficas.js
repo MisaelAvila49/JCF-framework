@@ -3,24 +3,33 @@
 // Cantidades en el texto de las paginas; las graficas muestran porcentajes.
 import * as Plot from "npm:@observablehq/plot";
 
-// Paleta categorica (corregir en un solo lugar). Armoniza con el rojo de marca.
-export const PALETA = ["#f59e0b", "#60a5fa", "#a78bfa", "#ea580c", "#34d399", "#94a3b8"];
+// --- Paletas del tablero (aprobadas): color por el trabajo que hace cada
+// dimension. Categorico para identidad, secuencial/ordinal para magnitud u orden.
+// Validado para daltonismo (CVD delta-E >= 12). Corregir SOLO aqui. ---
 
-// Colores fijos por sexo: Femenino naranja, Masculino azul.
-export const COLOR_SEXO = {FEMENINO: "#f59e0b", MASCULINO: "#60a5fa"};
+// Categorico nominal (macrotema, programa, tipo): 8 slots en orden fijo, nunca
+// ciclados. Si hay mas de 8 categorias, las sobrantes van a "Otros".
+export const PALETA = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#e34948", "#e87ba4", "#eb6834"];
 
-// Escala secuencial ordinal para los años (claro -> oscuro). Mismo mapeo en todo
-// el dashboard. Cubre 2019-2025.
-export const PALETA_AÑOS = ["#cfe0f3", "#9dc3e6", "#6aa6da", "#4C72B0", "#3a5a8c", "#2a4468", "#1b2e47"];
+// Sexo (categorico, 2): Femenino naranja, Masculino azul. Evita el estereotipo
+// rosa/azul y es seguro para daltonicos.
+export const COLOR_SEXO = {FEMENINO: "#eb6834", MASCULINO: "#2a78d6"};
+
+// Años (ordinal 2019-2025): rampa del rojo de marca, claro -> oscuro. Distinta de
+// la de edad para no confundir cuando ambas aparecen.
+export const PALETA_AÑOS = ["#fbd5d8", "#f4a6ac", "#ec7480", "#e5404f", "#E30A18", "#a6111c", "#6f0e16"];
 export const COLOR_AÑO = {
   "2019": PALETA_AÑOS[0], "2020": PALETA_AÑOS[1], "2021": PALETA_AÑOS[2],
   "2022": PALETA_AÑOS[3], "2023": PALETA_AÑOS[4], "2024": PALETA_AÑOS[5], "2025": PALETA_AÑOS[6],
 };
 
-// Escala de color para el desglose por edad: secuencial de oscuro (18) a claro
-// (29), dominio fijo para que el color de cada edad sea estable entre graficas.
+// Edad (ordinal 18-29): rampa azul secuencial, claro (18) -> oscuro (29).
 export const ESCALA_EDAD = {type: "linear", domain: [18, 29], scheme: "blues",
-  reverse: true, legend: true, label: "Edad"};
+  legend: true, label: "Edad"};
+
+// Deciles (ordinal 1-10): rampa azul. Se usa como dominio de color por decil.
+export const RAMPA_DECIL = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#6da7ec", "#3987e5",
+  "#256abf", "#184f95", "#104281", "#0d366b", "#0a2a54"];
 
 // Maximo de una propiedad numerica sin usar spread (evita "Maximum call stack"
 // con arreglos grandes).
@@ -65,10 +74,16 @@ function canales(dimLabel, dimVal, y, formato, crudoKey) {
   return ch;
 }
 
-// Barras verticales simples: un color por valor de x (ej. cada año). Sin leyenda.
+// Barras verticales simples: un color unico (el eje x ya identifica cada barra;
+// colorear por x re-encoderia lo que la posicion ya muestra). Si el eje es el
+// año, usa la rampa de años (ordinal) para reforzar la secuencia temporal.
 // crudoKey (opcional): columna con el conteo crudo para el tooltip.
 export function barras(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
                                formato = "pct", crudoKey = null} = {}) {
+  const esAño = x === "año" || datos.every((d) => /^20\d\d$/.test(String(d[x])));
+  const colorOpts = esAño
+    ? {domain: datos.map((d) => String(d[x])), range: datos.map((d) => COLOR_AÑO[String(d[x])] ?? "#2a78d6")}
+    : null;
   return Plot.plot({
     title: titulo,
     subtitle: subtitulo,
@@ -76,10 +91,11 @@ export function barras(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
     marginBottom: 40,
     x: {label: x},
     y: ejeValor(formato, y),
-    color: {domain: datos.map((d) => String(d[x])), range: PALETA},
+    ...(colorOpts ? {color: colorOpts} : {}),
     marks: [
       Plot.ruleY([0], {stroke: "#e2e8f0"}),
-      Plot.barY(datos, {x, y, fill: (d) => String(d[x]), fillOpacity: 0.85,
+      Plot.barY(datos, {x, y, fillOpacity: 0.9,
+        fill: esAño ? (d) => String(d[x]) : "#2a78d6",
         channels: canales(x, (d) => d[x], y, formato, crudoKey),
         tip: {format: {x: false, y: false, fill: false}}}),
       Plot.text(datos, {x, y, text: etiqueta(y, formato), dy: -6, fontSize: 9}),
@@ -168,7 +184,7 @@ export function lineas(datos, {x, y, serie = null, titulo = "", subtitulo = "",
     x: {label: x},
     y: {label: "%", grid: true, tickFormat: (d) => `${d}%`},
     marks: [
-      Plot.lineY(datos, {x, y, stroke: serie ?? "#60a5fa", marker: "circle",
+      Plot.lineY(datos, {x, y, stroke: serie ?? "#2a78d6", marker: "circle",
         channels: serie ? {[serie]: (d) => d[serie]} : {},
         tip: true}),
     ],
@@ -223,7 +239,7 @@ export function barrasH(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
     y: {label: null},
     marks: [
       Plot.ruleX([0], {stroke: "#e2e8f0"}),
-      Plot.barX(datos, {x, y, fill: "#60a5fa", fillOpacity: 0.85, sort: {y: "-x"},
+      Plot.barX(datos, {x, y, fill: "#2a78d6", fillOpacity: 0.85, sort: {y: "-x"},
         channels: {
           [y]: (d) => d[y],
           [formato === "pct" ? "Porcentaje" : "Valor"]: (d) =>
@@ -250,7 +266,7 @@ export function barrasFacetadas(datos, {x, y, faceta, titulo = "", subtitulo = "
     y: ejeValor(formato, y),
     marks: [
       Plot.ruleY([0], {stroke: "#e2e8f0"}),
-      Plot.barY(datos, {fx: faceta, x, y, fill: "#60a5fa", fillOpacity: 0.85,
+      Plot.barY(datos, {fx: faceta, x, y, fill: "#2a78d6", fillOpacity: 0.85,
         channels: {
           [faceta]: (d) => d[faceta],
           [x]: (d) => d[x],
