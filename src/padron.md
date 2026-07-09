@@ -88,10 +88,26 @@ const cobV = view(controlPanel({catEnt, catMun}));
   const {filas, modo} = filtrar(padron, est);
   const cfg = {
     unidad: "pct", etiquetaValor: "cobertura", mapeable: true, tipo: "serie",
-    facetaAño: "auto", titulo: "Cobertura", subtitulo: "% de candidatos con beca",
-    fuente: "Fuente: STPS",
+    facetaAño: false, serieDesglose: true, titulo: "Cobertura",
+    subtitulo: "% de candidatos con beca", fuente: "Fuente: STPS",
     metrica: (f, e) => {
-      // Si hay desglose por sexo/edad: serie por año con esa restriccion.
+      const sexoAct = e.sexo && e.sexo !== "Todos";
+      const edadAct = e.edadMin != null;
+      if (sexoAct || edadAct) {
+        // Serie por año x sexo o x edad (barras agrupadas, año en el eje).
+        const key = sexoAct ? "sexo" : "edad";
+        const m = new Map();
+        for (const d of f) {
+          if (sexoAct && d.sexo !== "FEMENINO" && d.sexo !== "MASCULINO") continue;
+          if (edadAct && (d.edad === "" || d.edad == null)) continue;
+          const serie = String(d[key]);
+          const k = d.año + "|" + serie;
+          if (!m.has(k)) m.set(k, {año: String(d.año), serie, ben: 0, can: 0});
+          const a = m.get(k); a.ben += +d.beneficiarios || 0; a.can += +d.candidatos || 0;
+        }
+        return [...m.values()].filter((d) => d.can > 0)
+          .map((d) => ({año: d.año, serie: d.serie, valor: d.ben / d.can * 100, crudo: d.ben}));
+      }
       const g = conTasa(agrupar(f, ["año"])).filter((d) => d.tasa != null);
       return g.map((d) => ({clave: String(d.año), año: String(d.año), valor: d.tasa, crudo: d.beneficiarios}));
     },
@@ -259,10 +275,10 @@ const antV = view(controlPanel({catEnt, catMun}));
 }
 ```
 
-## Cobertura vs pobreza (municipal o estatal, 2021)
+## Cobertura vs pobreza (municipal o estatal, 2021-2025)
 
-Cada punto es un municipio o entidad. No se desagrega por edad/sexo (indice del
-territorio). Al elegir un nivel se muestran sus puntos.
+Cada punto es un municipio o entidad; el tamaño representa el universo de
+candidatos. Un panel por año. Al elegir un estado/municipio se resalta su punto.
 
 ```js
 const pobV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"], desagrega: false}));
@@ -273,22 +289,25 @@ const pobV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"
   const est = resolverEstado(pobV, {catEnt, catMun});
   const {filas} = filtrar(cruces, est);
   const esMun = est.nivel === "municipal";
+  const nombreSel = esMun ? (est.cveMun && nombreMunPorCve.get(est.cveMun))
+    : (est.cveEnt && nombreEntPorCve.get(est.cveEnt));
   const g = new Map();
-  for (const d of filas.filter((x) => x.año === 2021)) {
+  for (const d of filas.filter((x) => +x.candidatos > 0 && x.pct_pobreza !== "" && x.pct_pobreza != null)) {
     const cve = esMun ? String(d.cve_mun).padStart(5, "0") : String(d.cve_ent).padStart(2, "0");
-    if (!g.has(cve)) g.set(cve, {ben: 0, can: 0, pob: d.pct_pobreza, nombre: esMun ? d.nombre_mun : d.nombre_ent});
-    const a = g.get(cve); a.ben += +d.beneficiarios || 0; a.can += +d.candidatos || 0;
+    const k = d.año + "|" + cve;
+    if (!g.has(k)) g.set(k, {año: String(d.año), ben: 0, can: 0, pob: d.pct_pobreza, nombre: esMun ? d.nombre_mun : d.nombre_ent});
+    const a = g.get(k); a.ben += +d.beneficiarios || 0; a.can += +d.candidatos || 0;
   }
-  const pts = [...g.values()].filter((d) => d.can > 0 && d.pob !== "" && d.pob != null)
-    .map((d) => ({x: d.pob, valor: d.ben / d.can * 100, nombre: d.nombre}));
-  display(dispersion(pts, {x: "x", y: "valor", etiquetaKey: "nombre",
-    titulo: "Cobertura vs pobreza (Candidatos, 2021)",
-    subtitulo: esMun ? "Cada punto es un municipio" : "Cada punto es una entidad",
+  const pts = [...g.values()].map((d) => ({año: d.año, x: d.pob, valor: d.ben / d.can * 100, universo: d.can, nombre: d.nombre}));
+  display(dispersion(pts, {x: "x", y: "valor", faceta: "año", etiquetaKey: "nombre",
+    rKey: "universo", resaltarNombre: nombreSel || null,
+    titulo: "Cobertura vs pobreza (Candidatos)",
+    subtitulo: (esMun ? "Cada punto es un municipio" : "Cada punto es una entidad") + " (tamaño = candidatos)",
     fuente: "Fuente: STPS / CONEVAL"}));
 }
 ```
 
-## Cobertura vs marginacion (municipal o estatal, 2021)
+## Cobertura vs marginacion (municipal o estatal, 2021-2025)
 
 ```js
 const margV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal"], desagrega: false}));
@@ -299,17 +318,20 @@ const margV = view(controlPanel({catEnt, catMun, niveles: ["Estatal", "Municipal
   const est = resolverEstado(margV, {catEnt, catMun});
   const {filas} = filtrar(cruces, est);
   const esMun = est.nivel === "municipal";
+  const nombreSel = esMun ? (est.cveMun && nombreMunPorCve.get(est.cveMun))
+    : (est.cveEnt && nombreEntPorCve.get(est.cveEnt));
   const g = new Map();
-  for (const d of filas.filter((x) => x.año === 2021)) {
+  for (const d of filas.filter((x) => +x.candidatos > 0 && x.indice_marginacion !== "" && x.indice_marginacion != null)) {
     const cve = esMun ? String(d.cve_mun).padStart(5, "0") : String(d.cve_ent).padStart(2, "0");
-    if (!g.has(cve)) g.set(cve, {ben: 0, can: 0, mar: d.indice_marginacion, nombre: esMun ? d.nombre_mun : d.nombre_ent});
-    const a = g.get(cve); a.ben += +d.beneficiarios || 0; a.can += +d.candidatos || 0;
+    const k = d.año + "|" + cve;
+    if (!g.has(k)) g.set(k, {año: String(d.año), ben: 0, can: 0, mar: d.indice_marginacion, nombre: esMun ? d.nombre_mun : d.nombre_ent});
+    const a = g.get(k); a.ben += +d.beneficiarios || 0; a.can += +d.candidatos || 0;
   }
-  const pts = [...g.values()].filter((d) => d.can > 0 && d.mar !== "" && d.mar != null)
-    .map((d) => ({x: d.mar, valor: d.ben / d.can * 100, nombre: d.nombre}));
-  display(dispersion(pts, {x: "x", y: "valor", etiquetaKey: "nombre",
-    titulo: "Cobertura vs marginacion (Candidatos, 2021)",
-    subtitulo: esMun ? "Cada punto es un municipio" : "Cada punto es una entidad",
+  const pts = [...g.values()].map((d) => ({año: d.año, x: d.mar, valor: d.ben / d.can * 100, universo: d.can, nombre: d.nombre}));
+  display(dispersion(pts, {x: "x", y: "valor", faceta: "año", etiquetaKey: "nombre",
+    rKey: "universo", resaltarNombre: nombreSel || null,
+    titulo: "Cobertura vs marginacion (Candidatos)",
+    subtitulo: (esMun ? "Cada punto es un municipio" : "Cada punto es una entidad") + " (tamaño = candidatos)",
     fuente: "Fuente: STPS / CONAPO"}));
 }
 ```
