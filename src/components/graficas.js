@@ -149,28 +149,35 @@ export function barrasAgrupadas(datos, {x, serie, y, titulo = "", subtitulo = ""
 // faceta (opcional): columna para paneles lado a lado (ej. año).
 export function barrasApiladas(datos, {x, serie, valor, titulo = "",
     subtitulo = "", fuente = "", dominioX = null, crudoKey = null, faceta = null} = {}) {
-  const barOpts = {x, y: valor, fill: serie, order: serie, fillOpacity: 0.85,
-    channels: {
-      [serie]: (d) => d[serie],
-      "Porcentaje": (d) => `${(+d[valor]).toFixed(1)}%`,
-      ...(crudoKey ? {"Monto": (d) => compacto(d[crudoKey])} : {}),
-    },
-    tip: {format: {x: false, y: false, fill: false}}};
-  if (faceta) barOpts.fx = faceta;
-  return Plot.plot({
-    title: titulo,
-    subtitle: subtitulo,
-    caption: fuente,
-    marginRight: 140,
-    color: {legend: true, range: PALETA},
+  const unPanel = (filas, tit, conLeyenda) => Plot.plot({
+    title: tit,
+    marginRight: conLeyenda ? 140 : 8,
+    color: {legend: conLeyenda, range: PALETA, domain: [...new Set(datos.map((d) => d[serie]))]},
     x: {label: null, ...(dominioX ? {domain: dominioX} : {})},
-    ...(faceta ? {fx: {label: faceta}} : {}),
     y: {label: "%", grid: true, tickFormat: (d) => `${d}%`},
     marks: [
-      Plot.barY(datos, barOpts),
+      Plot.barY(filas, {x, y: valor, fill: serie, order: serie, fillOpacity: 0.85,
+        channels: {
+          [serie]: (d) => d[serie],
+          "Porcentaje": (d) => `${(+d[valor]).toFixed(1)}%`,
+          ...(crudoKey ? {"Monto": (d) => compacto(d[crudoKey])} : {}),
+        },
+        tip: {format: {x: false, y: false, fill: false}}}),
       Plot.ruleY([0], {stroke: "#e2e8f0"}),
     ],
   });
+  if (!faceta) {
+    const p = unPanel(datos, titulo, true);
+    return subtitulo || fuente ? gridDe([p], {titulo: "", subtitulo, fuente}) : p;
+  }
+  const grupos = new Map();
+  for (const d of datos) {
+    if (!grupos.has(d[faceta])) grupos.set(d[faceta], []);
+    grupos.get(d[faceta]).push(d);
+  }
+  const ent = [...grupos.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  const nodos = ent.map(([val, filas], i) => unPanel(filas, `${faceta}: ${val}`, i === ent.length - 1));
+  return gridDe(nodos, {titulo, subtitulo, fuente});
 }
 
 // Lineas por grupo (serie opcional).
@@ -192,36 +199,47 @@ export function lineas(datos, {x, y, serie = null, titulo = "", subtitulo = "",
 }
 
 // Dispersion (un punto por municipio/entidad). etiquetaKey: nombre para el tip.
+// resaltarNombre: destaca ese item (contorno) y atenua los demas.
+// faceta: si se pasa, genera UNA grafica por valor de la faceta en grid 2-col.
 export function dispersion(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
     etiquetaKey = null, rKey = null, resaltarNombre = null, faceta = null} = {}) {
   const canales = {
     ...(etiquetaKey ? {[etiquetaKey]: (d) => d[etiquetaKey]} : {}),
     ...(rKey ? {"Universo": (d) => compacto(d[rKey])} : {}),
   };
-  const base = {x, y, fillOpacity: 0.5, fill: "#ea580c",
-    ...(rKey ? {r: rKey} : {r: 3}),
-    channels: canales,
-    tip: {channels: canales, format: {x: true, y: true, r: false, fx: false, fill: false, stroke: false, fillOpacity: false}}};
-  if (faceta) base.fx = faceta;
-  const marks = [Plot.ruleY([0], {stroke: "#e2e8f0"})];
-  if (resaltarNombre && etiquetaKey) {
-    marks.push(Plot.dot(datos.filter((d) => d[etiquetaKey] !== resaltarNombre),
-      {...base, fill: "#cbd5e1", fillOpacity: 0.35, stroke: null}));
-    marks.push(Plot.dot(datos.filter((d) => d[etiquetaKey] === resaltarNombre),
-      {...base, fill: "#ea580c", fillOpacity: 0.9, stroke: "#1D1D1B", strokeWidth: 1.5}));
-  } else {
-    marks.push(Plot.dot(datos, base));
+  const unPanel = (filas, tit) => {
+    const base = {x, y, fillOpacity: 0.5, fill: "#ea580c",
+      ...(rKey ? {r: rKey} : {r: 3}), channels: canales,
+      tip: {channels: canales, format: {x: true, y: true, r: false, fill: false, stroke: false, fillOpacity: false}}};
+    const marks = [Plot.ruleY([0], {stroke: "#e2e8f0"})];
+    if (resaltarNombre && etiquetaKey) {
+      marks.push(Plot.dot(filas.filter((d) => d[etiquetaKey] !== resaltarNombre),
+        {...base, fill: "#cbd5e1", fillOpacity: 0.35, stroke: null}));
+      marks.push(Plot.dot(filas.filter((d) => d[etiquetaKey] === resaltarNombre),
+        {...base, fill: "#ea580c", fillOpacity: 0.9, stroke: "#1D1D1B", strokeWidth: 1.5}));
+    } else {
+      marks.push(Plot.dot(filas, base));
+    }
+    return Plot.plot({
+      title: tit,
+      ...(rKey ? {r: {range: [2, 14]}} : {}),
+      x: {label: x, grid: true},
+      y: {label: y, grid: true, tickFormat: (d) => `${d}%`},
+      marks,
+    });
+  };
+  if (!faceta) {
+    const p = unPanel(datos, titulo);
+    return subtitulo || fuente ? gridDe([p], {titulo: "", subtitulo, fuente}) : p;
   }
-  return Plot.plot({
-    title: titulo,
-    subtitle: subtitulo,
-    caption: fuente,
-    ...(rKey ? {r: {range: [2, 14]}} : {}),
-    ...(faceta ? {fx: {label: faceta}} : {}),
-    x: {label: x, grid: true},
-    y: {label: y, grid: true, tickFormat: (d) => `${d}%`},
-    marks,
-  });
+  const grupos = new Map();
+  for (const d of datos) {
+    if (!grupos.has(d[faceta])) grupos.set(d[faceta], []);
+    grupos.get(d[faceta]).push(d);
+  }
+  const nodos = [...grupos.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    .map(([val, filas]) => unPanel(filas, `${faceta}: ${val}`));
+  return gridDe(nodos, {titulo, subtitulo, fuente});
 }
 
 // Barras horizontales (ranking por entidad/municipio): un color unico.
@@ -253,30 +271,62 @@ export function barrasH(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
   });
 }
 
-// Barras facetadas: un mini-panel por valor de `faceta` (ej. año), lado a lado.
-// dominioX (opcional): orden explicito del eje x (ej. deciles 1..10, evita el
-// orden lexicografico 1,10,2,3).
+// Envuelve varias graficas en un grid de 2 columnas (max 2 por fila) para que
+// cada una tenga ancho suficiente y los ejes se lean. Con titulo opcional arriba.
+export function gridDe(nodos, {titulo = "", subtitulo = "", fuente = ""} = {}) {
+  const cont = document.createElement("div");
+  cont.style.cssText = "display:grid;gap:.4rem 1.5rem;";
+  if (titulo) {
+    const h = document.createElement("div");
+    h.textContent = titulo;
+    h.style.cssText = "font-weight:700;font-size:1.05rem;border-bottom:2px solid #E30A18;padding-bottom:.3rem;margin-bottom:.3rem;";
+    cont.appendChild(h);
+  }
+  if (subtitulo) {
+    const s = document.createElement("div");
+    s.textContent = subtitulo;
+    s.style.cssText = "color:#52514e;font-size:.85rem;margin-bottom:.5rem;";
+    cont.appendChild(s);
+  }
+  const g = document.createElement("div");
+  g.style.cssText = "display:grid;gap:1.25rem 1.5rem;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;";
+  for (const n of nodos) { n.style.maxWidth = "100%"; g.appendChild(n); }
+  cont.appendChild(g);
+  if (fuente) {
+    const c = document.createElement("div");
+    c.textContent = fuente;
+    c.style.cssText = "color:#898781;font-size:.75rem;margin-top:.4rem;";
+    cont.appendChild(c);
+  }
+  return cont;
+}
+
+// Barras facetadas por año: UNA grafica por año en grid de 2 columnas (no paneles
+// internos estrechos). dominioX (opcional): orden del eje x (ej. deciles 1..10).
 export function barrasFacetadas(datos, {x, y, faceta, titulo = "", subtitulo = "",
     fuente = "", formato = "pct", crudoKey = null, dominioX = null} = {}) {
-  return Plot.plot({
-    title: titulo,
-    subtitle: subtitulo,
-    caption: fuente,
-    marginBottom: 40,
-    fx: {label: faceta},
-    x: {label: x, tickRotate: 0, ...(dominioX ? {domain: dominioX} : {})},
-    y: ejeValor(formato, y),
-    marks: [
-      Plot.ruleY([0], {stroke: "#e2e8f0"}),
-      Plot.barY(datos, {fx: faceta, x, y, fill: "#2a78d6", fillOpacity: 0.85,
-        channels: {
-          [faceta]: (d) => d[faceta],
-          [x]: (d) => d[x],
-          [formato === "pct" ? "Porcentaje" : "Valor"]: (d) =>
-            formato === "pct" ? `${(+d[y]).toFixed(1)}%` : compacto(d[y]),
-          ...(crudoKey ? {"Poblacion": (d) => compacto(d[crudoKey])} : {}),
-        },
-        tip: {format: {fx: false, x: false, y: false}}}),
-    ],
-  });
+  const grupos = new Map();
+  for (const d of datos) {
+    if (!grupos.has(d[faceta])) grupos.set(d[faceta], []);
+    grupos.get(d[faceta]).push(d);
+  }
+  const nodos = [...grupos.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    .map(([val, filas]) => Plot.plot({
+      title: `${faceta}: ${val}`,
+      marginBottom: 40,
+      x: {label: x, tickRotate: 0, ...(dominioX ? {domain: dominioX} : {})},
+      y: ejeValor(formato, y),
+      marks: [
+        Plot.ruleY([0], {stroke: "#e2e8f0"}),
+        Plot.barY(filas, {x, y, fill: "#2a78d6", fillOpacity: 0.85,
+          channels: {
+            [x]: (d) => d[x],
+            [formato === "pct" ? "Porcentaje" : "Valor"]: (d) =>
+              formato === "pct" ? `${(+d[y]).toFixed(1)}%` : compacto(d[y]),
+            ...(crudoKey ? {"Poblacion": (d) => compacto(d[crudoKey])} : {}),
+          },
+          tip: {format: {x: false, y: false}}}),
+      ],
+    }));
+  return gridDe(nodos, {titulo, subtitulo, fuente});
 }
