@@ -82,6 +82,10 @@ export function render(config, filas, contexto) {
       })()
     : [["", config.agrupaGeo(filas, estado)]];
 
+  // Max global del valor entre todos los años, para fijar el eje de los rankings.
+  let maxRank = 0;
+  for (const [, geo] of porAño) for (const d of geo) if (d.valor > maxRank) maxRank = d.valor;
+  const dominioMax = maxRank > 0 ? maxRank * 1.05 : null;
   const mapas = [], rankings = [];
   for (const [año, geo] of porAño) {
     const tope = modo === "compara-municipios" ? 50 : geo.length;
@@ -101,7 +105,7 @@ export function render(config, filas, contexto) {
       }
     }
     rankings.push(barrasH(ranking.map((d) => ({nombre: d.nombre, valor: d.valor, crudo: d.crudo})),
-      {x: "valor", y: "nombre", formato: config.unidad ?? "pct", crudoKey: "crudo",
+      {x: "valor", y: "nombre", formato: config.unidad ?? "pct", crudoKey: "crudo", dominioMax,
        titulo: sufAño, subtitulo: (config.subtitulo ?? "") + " (ranking)", fuente: config.fuente}));
   }
   // Mapas juntos en una fila (subplots por año, lado a lado); rankings en otra.

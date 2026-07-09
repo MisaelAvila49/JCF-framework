@@ -207,6 +207,8 @@ export function dispersion(datos, {x, y, titulo = "", subtitulo = "", fuente = "
     ...(etiquetaKey ? {[etiquetaKey]: (d) => d[etiquetaKey]} : {}),
     ...(rKey ? {"Universo": (d) => compacto(d[rKey])} : {}),
   };
+  // Ejes X e Y fijos (mismos limites) en todos los paneles para comparar.
+  const maxX = maxProp(datos, x), maxY = maxProp(datos, y);
   const unPanel = (filas, tit) => {
     const base = {x, y, fillOpacity: 0.5, fill: "#ea580c",
       ...(rKey ? {r: rKey} : {r: 3}), channels: canales,
@@ -223,8 +225,8 @@ export function dispersion(datos, {x, y, titulo = "", subtitulo = "", fuente = "
     return Plot.plot({
       title: tit,
       ...(rKey ? {r: {range: [2, 14]}} : {}),
-      x: {label: x, grid: true},
-      y: {label: y, grid: true, tickFormat: (d) => `${d}%`},
+      x: {label: x, grid: true, domain: [0, maxX > 0 ? maxX * 1.05 : 1]},
+      y: {label: y, grid: true, tickFormat: (d) => `${d}%`, domain: [0, maxY > 0 ? maxY * 1.05 : 1]},
       marks,
     });
   };
@@ -243,8 +245,11 @@ export function dispersion(datos, {x, y, titulo = "", subtitulo = "", fuente = "
 }
 
 // Barras horizontales (ranking por entidad/municipio): un color unico.
+// dominioMax (opcional): fija el limite del eje de valor (para comparar entre
+// facetas/años con la misma escala).
 export function barrasH(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
-                                formato = "pct", crudoKey = null} = {}) {
+                                formato = "pct", crudoKey = null, dominioMax = null} = {}) {
+  const dom = dominioMax != null ? {domain: [0, dominioMax]} : {};
   return Plot.plot({
     title: titulo,
     subtitle: subtitulo,
@@ -252,8 +257,8 @@ export function barrasH(datos, {x, y, titulo = "", subtitulo = "", fuente = "",
     marginLeft: 150,
     height: Math.max(120, datos.length * 22 + 60),
     x: formato === "pct"
-      ? {label: "%", grid: true, tickFormat: (d) => `${d}%`}
-      : {label: x, grid: true, tickFormat: (d) => compacto(d)},
+      ? {label: "%", grid: true, tickFormat: (d) => `${d}%`, ...dom}
+      : {label: x, grid: true, tickFormat: (d) => compacto(d), ...dom},
     y: {label: null},
     marks: [
       Plot.ruleX([0], {stroke: "#e2e8f0"}),
@@ -310,12 +315,15 @@ export function barrasFacetadas(datos, {x, y, faceta, titulo = "", subtitulo = "
     if (!grupos.has(d[faceta])) grupos.set(d[faceta], []);
     grupos.get(d[faceta]).push(d);
   }
+  // Eje Y fijo (mismo maximo) en todos los paneles para comparar entre años.
+  const maxY = maxProp(datos, y);
+  const ejeY = {...ejeValor(formato, y), domain: [0, maxY > 0 ? maxY * 1.05 : 1]};
   const nodos = [...grupos.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))
     .map(([val, filas]) => Plot.plot({
       title: `${faceta}: ${val}`,
       marginBottom: 40,
       x: {label: x, tickRotate: 0, ...(dominioX ? {domain: dominioX} : {})},
-      y: ejeValor(formato, y),
+      y: ejeY,
       marks: [
         Plot.ruleY([0], {stroke: "#e2e8f0"}),
         Plot.barY(filas, {x, y, fill: "#2a78d6", fillOpacity: 0.85,
