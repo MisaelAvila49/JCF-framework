@@ -35,6 +35,7 @@ export default {
 
   pages: [
     { name: "Padron JCF", path: "/padron" },
+    { name: "Padron: tasa por cada 1,000", path: "/padron-tasa" },
     { name: "ENIGH Hogares", path: "/enigh-hogares" },
     { name: "ENIGH Personas", path: "/enigh-personas" }
   ],

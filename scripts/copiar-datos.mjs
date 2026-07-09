@@ -17,6 +17,7 @@ const ARCHIVOS = [
   "padron_antiguedad_geo.csv",
   "padron_monto.csv",
   "padron_antiguedad.csv",
+  "padron_poblacion_censo.csv",
   "enigh_c1_cobertura_estatal.csv",
   "enigh_c3c4_decil_estatal.csv",
   "enigh_composicion_ingreso_estatal.csv",
