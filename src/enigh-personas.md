@@ -10,10 +10,11 @@ import {
   barras,
   barrasApiladas,
   barrasFacetadas,
+  heatmapAño,
   maxProp,
   COLOR_SEXO,
 } from "./components/graficas.js"
-import { mapaEntidades, mapasPorAño } from "./components/mapa.js"
+import { mapaEntidades } from "./components/mapa.js"
 const NIVELES = ["Sin escolaridad", "Primaria", "Secundaria", "Media superior", "Superior", "Posgrado"]
 const ACTIV = ["Solo estudia", "Estudia y trabaja", "Solo trabaja", "Ninguna"]
 const escPer = FileAttachment("./data/enigh_persona_escolaridad.csv").csv({
@@ -58,20 +59,37 @@ const catEnt = Array.from(
 ).map(([cve, nombre]) => ({ cve, nombre }))
 const nombrePorCve = new Map(catEnt.map((e) => [e.cve, e.nombre]))
 const deciles = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
-// Aplica nivel(estado)+sexo+edad a un dataset por persona.
+const aniosEnigh = [...new Set(beca.map((d) => String(d.año)))].sort((a, b) => +a - +b)
+// Aplica nivel(estado)+año+sexo+edad a un dataset por persona.
 function aplicar(datos, est) {
   let f = datos
   if (est.nivel === "estatal" && est.cveEnt)
     f = f.filter((d) => String(d.cve_ent).padStart(2, "0") === est.cveEnt)
+  if (est.anio) f = f.filter((d) => String(d.año) === est.anio)
   if (est.sexo && est.sexo !== "Todos") f = f.filter((d) => d.sexo === est.sexo)
   if (est.edadMin != null)
     f = f.filter((d) => +d.edad >= est.edadMin && +d.edad <= est.edadMax)
   return f
 }
 function etiq(est) {
-  return est.nivel === "estatal" && est.cveEnt
+  const geo = est.nivel === "estatal" && est.cveEnt
     ? " - " + (nombrePorCve.get(est.cveEnt) ?? "")
     : " - Nacional"
+  return geo + (est.anio ? ` (${est.anio})` : "")
+}
+// Mapa (año fijo) o heatmap estados x año (todos). porAño: Map año -> (Map cve -> valor).
+function mapaOHeat(porAño, geo, est, { subtitulo = "", fuente = "", etiquetaValor = "valor", titulo = "", formato = "pct" } = {}) {
+  const resaltar = est.nivel === "estatal" && est.cveEnt ? est.cveEnt : null
+  if (est.anio) {
+    const valores = porAño.get(est.anio) ?? porAño.get(+est.anio) ?? new Map()
+    return mapaEntidades(geo, valores, { titulo, subtitulo: `${subtitulo} (${est.anio})`,
+      fuente, nombrePorCve, formato, etiquetaValor, resaltarCve: resaltar })
+  }
+  const puntos = []
+  for (const [año, m] of porAño)
+    for (const [cve, v] of m)
+      puntos.push({ año: String(año), cve, nombre: nombrePorCve.get(cve) ?? cve, valor: v })
+  return heatmapAño(puntos, { titulo, subtitulo, fuente, resaltarCve: resaltar, formato, etiquetaValor })
 }
 ```
 
@@ -79,7 +97,7 @@ function etiq(est) {
 
 ```js
 const v1 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true, anios: aniosEnigh })
 )
 ```
 
@@ -125,7 +143,7 @@ const v1 = view(
 
 ```js
 const v2 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true, anios: aniosEnigh })
 )
 ```
 
@@ -171,7 +189,7 @@ const v2 = view(
 
 ```js
 const vEsc = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true, anios: aniosEnigh })
 )
 ```
 
@@ -216,7 +234,7 @@ const vEsc = view(
 
 ```js
 const vAct = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true, anios: aniosEnigh })
 )
 ```
 
@@ -261,7 +279,7 @@ const vAct = view(
 
 ```js
 const v3 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: true, anios: aniosEnigh })
 )
 ```
 
@@ -341,30 +359,38 @@ const v3 = view(
 }
 ```
 
-## Mapa de personas con la beca por entidad (todos los años)
+## Personas con la beca por entidad
+
+Todos los años: heatmap de entidades por año. Al fijar un año se muestra el mapa.
+
+```js
+const mapaBecaV = view(
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
+)
+```
 
 ```js
 {
+  const est = resolverEstado(mapaBecaV, { catEnt, catMun: [] })
   const porAño = new Map()
   const totAño = new Map()
   for (const d of beca) {
     const cve = String(d.cve_ent).padStart(2, "0")
-    if (!porAño.has(d.año)) porAño.set(d.año, new Map())
-    const mp = porAño.get(d.año)
+    const a = String(d.año)
+    if (!porAño.has(a)) porAño.set(a, new Map())
+    const mp = porAño.get(a)
     mp.set(cve, (mp.get(cve) ?? 0) + d.personas)
-    totAño.set(d.año, (totAño.get(d.año) ?? 0) + d.personas)
+    totAño.set(a, (totAño.get(a) ?? 0) + d.personas)
   }
   for (const [año, mp] of porAño) {
     const t = totAño.get(año) || 0
     for (const [cve, v] of mp) mp.set(cve, t ? (v / t) * 100 : 0)
   }
   display(
-    mapasPorAño(porAño, await geoEnt, {
+    mapaOHeat(porAño, await geoEnt, est, {
       titulo: "Personas con la beca por entidad",
-      subtitulo: "% de personas con beca por entidad, por año",
+      subtitulo: "% de personas con beca por entidad",
       fuente: "Fuente: INEGI (ENIGH)",
-      nombrePorCve,
-      formato: "pct",
       etiquetaValor: "% personas",
     })
   )
@@ -531,7 +557,7 @@ Ingreso corriente per capita del hogar (pesos reales base 2024), promedio por en
 
 ```js
 const vPc = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
 )
 ```
 
@@ -571,22 +597,31 @@ const vPc = view(
 }
 ```
 
-## Mapa de ingreso per capita (con beca, todos los años)
+## Ingreso per capita (con beca) por entidad
+
+Todos los años: heatmap de entidades por año. Al fijar un año se muestra el mapa.
+
+```js
+const mapaPcV = view(
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
+)
+```
 
 ```js
 {
+  const est = resolverEstado(mapaPcV, { catEnt, catMun: [] })
   const porAño = new Map()
   for (const d of pcPer.filter((x) => x.grupo === "con beca")) {
     const cve = String(d.cve_ent).padStart(2, "0")
-    if (!porAño.has(d.año)) porAño.set(d.año, new Map())
-    porAño.get(d.año).set(cve, +d.ing_pc_real_prom)
+    const a = String(d.año)
+    if (!porAño.has(a)) porAño.set(a, new Map())
+    porAño.get(a).set(cve, +d.ing_pc_real_prom)
   }
   display(
-    mapasPorAño(porAño, await geoEnt, {
+    mapaOHeat(porAño, await geoEnt, est, {
       titulo: "Ingreso per capita (personas con beca)",
-      subtitulo: "pesos reales (base 2024) por entidad, por año",
+      subtitulo: "pesos reales (base 2024) por entidad",
       fuente: "Fuente: INEGI (ENIGH)",
-      nombrePorCve,
       formato: "entero",
       etiquetaValor: "ing. pc",
     })

@@ -12,9 +12,10 @@ import {
   barrasFacetadas,
   barrasH,
   dispersion,
+  heatmapAño,
   maxProp,
 } from "./components/graficas.js"
-import { mapaEntidades as mapaEnt, mapasPorAño } from "./components/mapa.js"
+import { mapaEntidades as mapaEnt } from "./components/mapa.js"
 const escJefe = FileAttachment("./data/enigh_escolaridad_jefe.csv").csv({
   typed: true,
 })
@@ -75,19 +76,38 @@ const catEnt = Array.from(
 ).map(([cve, nombre]) => ({ cve, nombre }))
 const nombrePorCve = new Map(catEnt.map((e) => [e.cve, e.nombre]))
 const deciles = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+// Años disponibles en la ENIGH (para el filtro por año del controlPanel).
+const aniosEnigh = [...new Set(cobE.map((d) => String(d.año)))].sort((a, b) => +a - +b)
 // Elige el dataset segun nivel: si estatal con estado, filtra el _estatal por cve.
+// Ademas filtra por año si el panel fijo uno (est.anio).
 function pick(est, nac, estatal) {
-  if (est.nivel === "estatal" && est.cveEnt) {
-    return estatal.filter(
-      (d) => String(d.cve_ent).padStart(2, "0") === est.cveEnt
-    )
-  }
-  return nac
+  let d = est.nivel === "estatal" && est.cveEnt
+    ? estatal.filter((x) => String(x.cve_ent).padStart(2, "0") === est.cveEnt)
+    : nac
+  if (est.anio) d = d.filter((x) => String(x.año) === est.anio)
+  return d
 }
 function etiqueta(est) {
-  return est.nivel === "estatal" && est.cveEnt
+  const geo = est.nivel === "estatal" && est.cveEnt
     ? " - " + (nombrePorCve.get(est.cveEnt) ?? "")
     : " - Nacional"
+  return geo + (est.anio ? ` (${est.anio})` : "")
+}
+// Mapa (año fijo) o heatmap estados x año (todos): reutiliza el patron del padron.
+// porAño: Map año -> (Map cve -> valor). resalta el estado elegido.
+function mapaOHeat(porAño, geo, est, { subtitulo = "", fuente = "", etiquetaValor = "valor", titulo = "" } = {}) {
+  const resaltar = est.nivel === "estatal" && est.cveEnt ? est.cveEnt : null
+  if (est.anio) {
+    const valores = porAño.get(est.anio) ?? porAño.get(+est.anio) ?? new Map()
+    return mapaEnt(geo, valores, { titulo, subtitulo: `${subtitulo} (${est.anio})`,
+      fuente, nombrePorCve, formato: "pct", etiquetaValor, resaltarCve: resaltar })
+  }
+  const puntos = []
+  for (const [año, m] of porAño)
+    for (const [cve, v] of m)
+      puntos.push({ año: String(año), cve, nombre: nombrePorCve.get(cve) ?? cve, valor: v })
+  return heatmapAño(puntos, { titulo, subtitulo, fuente, resaltarCve: resaltar,
+    formato: "pct", etiquetaValor })
 }
 ```
 
@@ -95,7 +115,7 @@ function etiqueta(est) {
 
 ```js
 const v1 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
 )
 ```
 
@@ -123,23 +143,32 @@ const v1 = view(
 }
 ```
 
-## Mapa de cobertura por entidad (todos los años)
+## Cobertura por entidad
+
+Todos los años: heatmap de entidades (filas) por año (columnas). Al fijar un año en
+el panel se muestra el mapa geografico de ese año.
+
+```js
+const mapaCobV = view(
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
+)
+```
 
 ```js
 {
+  const est = resolverEstado(mapaCobV, { catEnt, catMun: [] })
   const porAño = new Map()
   for (const d of cobE) {
     const cve = String(d.cve_ent).padStart(2, "0")
-    if (!porAño.has(d.año)) porAño.set(d.año, new Map())
-    porAño.get(d.año).set(cve, +d.pct_con_jcf)
+    const a = String(d.año)
+    if (!porAño.has(a)) porAño.set(a, new Map())
+    porAño.get(a).set(cve, +d.pct_con_jcf)
   }
   display(
-    mapasPorAño(porAño, await geoEnt, {
+    mapaOHeat(porAño, await geoEnt, est, {
       titulo: "Cobertura por entidad",
-      subtitulo: "% de hogares con candidato que reciben la beca, por año",
+      subtitulo: "% de hogares con candidato que reciben la beca",
       fuente: "Fuente: INEGI (ENIGH)",
-      nombrePorCve,
-      formato: "pct",
       etiquetaValor: "cobertura",
     })
   )
@@ -150,7 +179,7 @@ const v1 = view(
 
 ```js
 const v2 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
 )
 ```
 
@@ -185,7 +214,7 @@ const v2 = view(
 
 ```js
 const v3 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
 )
 ```
 
@@ -220,7 +249,7 @@ const v3 = view(
 
 ```js
 const v4 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
 )
 ```
 
@@ -367,7 +396,7 @@ display(
 
 ```js
 const v5 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
 )
 ```
 
@@ -402,7 +431,7 @@ const v5 = view(
 
 ```js
 const v6 = view(
-  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false })
+  controlPanel({ catEnt, niveles: ["Nacional", "Estatal"], desagrega: false, anios: aniosEnigh })
 )
 ```
 
