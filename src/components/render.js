@@ -93,18 +93,34 @@ export function render(config, filas, contexto) {
     : [["", config.agrupaGeo(filas, estado)]];
   if (anioSel) porAño = porAño.filter(([año]) => String(año) === anioSel);
 
-  // Con "Todos" los años y mapa disponible: heatmap por año (bins de % x conteo),
-  // sin mapa geografico. Con un año fijo se cae al mapa geografico normal.
+  // Con "Todos" los años y mapa disponible: heatmap unidad x año (filas = estados
+  // o municipios, columnas = años, celda = valor), sin mapa geografico. Con un año
+  // fijo se cae al mapa geografico normal.
   const usaHeatmap = config.mapeable && !anioSel && config.agrupaGeoAño;
   let heatmap = null;
   if (usaHeatmap) {
-    const puntos = porAño.flatMap(([año, geo]) =>
+    let puntos = porAño.flatMap(([año, geo]) =>
       geo.map((d) => ({año, cve: d.cve, nombre: d.nombre, valor: d.valor})));
     const resaltar = modo === "compara-estados" ? (estado.cveEnt ?? null)
       : (estado.cveMun ?? null);
+    // Muchos municipios no caben como filas: se toma el top 50 por valor promedio
+    // (mas la unidad seleccionada, si la hay).
+    if (modo !== "compara-estados") {
+      const prom = new Map();
+      for (const p of puntos) {
+        if (!prom.has(p.cve)) prom.set(p.cve, {s: 0, n: 0});
+        const a = prom.get(p.cve); a.s += p.valor; a.n += 1;
+      }
+      const top = new Set([...prom.entries()]
+        .sort((a, b) => (b[1].s / b[1].n) - (a[1].s / a[1].n))
+        .slice(0, 50).map(([cve]) => cve));
+      if (resaltar) top.add(resaltar);
+      puntos = puntos.filter((p) => top.has(p.cve));
+    }
     heatmap = heatmapAño(puntos, {titulo: config.titulo,
-      subtitulo: (config.subtitulo ?? "") + " (distribucion por año)",
+      subtitulo: (config.subtitulo ?? "") + " (por unidad y año)",
       fuente: config.fuente, resaltarCve: resaltar,
+      formato: config.unidad ?? "pct",
       etiquetaValor: config.etiquetaValor ?? "valor"});
   }
 

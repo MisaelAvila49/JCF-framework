@@ -307,71 +307,53 @@ export function gridDe(nodos, {titulo = "", subtitulo = "", fuente = ""} = {}) {
   return cont;
 }
 
-// Heatmap facetado por año: UN panel por año. El eje X son rangos (bins) del
-// porcentaje del analisis; cada celda se colorea por cuantas unidades (entidades
-// o municipios) caen en ese rango. datos: [{año, cve, nombre, valor}] (valor en
-// %). resaltarCve: marca con contorno la celda donde cae la unidad elegida.
-// paso: ancho del bin en puntos porcentuales (default 10 -> 0-10,10-20,...).
+// Heatmap unidad x año: filas = unidades (entidades o municipios), columnas =
+// años, cada celda coloreada por el valor del analisis. Mismo colorbar de rojos
+// que los mapas (0-100 en %). datos: [{año, cve, nombre, valor}]. resaltarCve:
+// marca con contorno la fila de la unidad elegida. formato "pct" usa domain
+// [0,100]; "entero" usa escala lineal al maximo.
 export function heatmapAño(datos, {titulo = "", subtitulo = "", fuente = "",
-    resaltarCve = null, paso = 10, etiquetaValor = "valor"} = {}) {
-  const bins = [];
-  for (let lo = 0; lo < 100; lo += paso) bins.push(lo);
-  const etiqBin = (lo) => `${lo}-${Math.min(lo + paso, 100)}%`;
-  const binDe = (v) => {
-    const lo = Math.min(Math.floor(Math.max(0, +v) / paso) * paso, 100 - paso);
-    return etiqBin(lo);
-  };
-  const dominioBins = bins.map(etiqBin);
-  const grupos = new Map();
+    resaltarCve = null, formato = "pct", etiquetaValor = "valor"} = {}) {
+  // Años ordenados (columnas) y unidades ordenadas por su valor promedio (mayor
+  // arriba) para que el patron se lea de un vistazo.
+  const años = [...new Set(datos.map((d) => String(d.año)))].sort((a, b) => +a - +b);
+  const porUnidad = new Map();
   for (const d of datos) {
-    const a = String(d.año);
-    if (!grupos.has(a)) grupos.set(a, []);
-    grupos.get(a).push(d);
+    if (!porUnidad.has(d.cve)) porUnidad.set(d.cve, {cve: d.cve, nombre: d.nombre, suma: 0, n: 0});
+    const u = porUnidad.get(d.cve);
+    u.suma += +d.valor || 0; u.n += 1;
   }
-  // Maximo conteo global para fijar la escala de color entre paneles.
-  let maxN = 0;
-  for (const [, filas] of grupos) {
-    const c = new Map();
-    for (const d of filas) { const b = binDe(d.valor); c.set(b, (c.get(b) ?? 0) + 1); }
-    for (const n of c.values()) if (n > maxN) maxN = n;
-  }
-  const nodos = [...grupos.entries()].sort((a, b) => +a[0] - +b[0])
-    .map(([año, filas]) => {
-      const porBin = new Map();
-      for (const d of filas) {
-        const b = binDe(d.valor);
-        if (!porBin.has(b)) porBin.set(b, {bin: b, n: 0, nombres: [], tieneSel: false});
-        const o = porBin.get(b);
-        o.n += 1;
-        o.nombres.push(d.nombre);
-        if (resaltarCve && d.cve === resaltarCve) o.tieneSel = true;
-      }
-      const celdas = dominioBins.map((b) => porBin.get(b) ?? {bin: b, n: 0, nombres: [], tieneSel: false});
-      const conSel = celdas.filter((c) => c.tieneSel);
-      return Plot.plot({
-        title: String(año),
-        marginBottom: 45,
-        height: 130,
-        x: {domain: dominioBins, label: etiquetaValor, tickRotate: -35},
-        y: {axis: null},
-        color: {scheme: "reds", type: "linear", domain: [0, maxN || 1],
-          legend: true, label: "# unidades"},
-        marks: [
-          Plot.cell(celdas, {x: "bin", fill: "n",
-            channels: {
-              "Rango": (d) => d.bin,
-              "Unidades": (d) => d.n,
-              "Cuales": (d) => d.nombres.slice(0, 8).join(", ") + (d.nombres.length > 8 ? "..." : ""),
-            },
-            tip: {format: {x: false, fill: false}}}),
-          Plot.text(celdas.filter((c) => c.n > 0), {x: "bin", text: (d) => d.n,
-            fill: (d) => d.n > maxN * 0.6 ? "#fff" : "#1D1D1B", fontWeight: 600}),
-          ...(conSel.length ? [Plot.cell(conSel, {x: "bin", fill: "none",
-            stroke: "#1D1D1B", strokeWidth: 2.5})] : []),
-        ],
-      });
-    });
-  return gridDe(nodos, {titulo, subtitulo, fuente});
+  const ordenNombres = [...porUnidad.values()]
+    .sort((a, b) => (a.suma / a.n) - (b.suma / b.n))  // asc: mayor promedio arriba en y
+    .map((u) => u.nombre);
+  const celdas = datos.map((d) => ({...d, año: String(d.año)}));
+  const maxV = maxProp(celdas, "valor");
+  // Altura proporcional al numero de unidades (una fila por unidad).
+  const nU = ordenNombres.length;
+  const alto = Math.max(180, nU * 16 + 60);
+  const sel = resaltarCve ? celdas.filter((d) => d.cve === resaltarCve) : [];
+  const fmtVal = (v) => formato === "pct" ? `${(+v).toFixed(1)}%` : compacto(v);
+  const heat = Plot.plot({
+    marginLeft: 130,
+    marginBottom: 40,
+    height: alto,
+    width: 520,
+    x: {label: "Año", domain: años, tickRotate: 0},
+    y: {label: null, domain: ordenNombres},
+    color: {scheme: "reds", type: "linear",
+      ...(formato === "pct" ? {domain: [0, 100]} : {domain: [0, maxV > 0 ? maxV : 1]}),
+      legend: true, label: etiquetaValor, unknown: "#eee",
+      ticks: 5, tickFormat: (d) => formato === "pct" ? `${(+d).toFixed(0)}%` : compacto(d)},
+    marks: [
+      Plot.cell(celdas, {x: "año", y: "nombre", fill: "valor", inset: 0.5,
+        channels: {"Unidad": (d) => d.nombre, "Año": (d) => d.año,
+          [etiquetaValor]: (d) => fmtVal(d.valor)},
+        tip: {format: {x: false, y: false, fill: false}}}),
+      ...(sel.length ? [Plot.cell(sel, {x: "año", y: "nombre", fill: "none",
+        stroke: "#1D1D1B", strokeWidth: 2.5, inset: 0.5})] : []),
+    ],
+  });
+  return gridDe([heat], {titulo, subtitulo, fuente});
 }
 
 // Barras facetadas por año: UNA grafica por año en grid de 2 columnas (no paneles
